@@ -1,0 +1,10 @@
+.venv/
+backend/.venv/
+backend/__pycache__/
+backend/uploads/
+backend/data_quality.db
+data_quality.db
+frontend/node_modules/
+frontend/dist/
+otp_code.txt
+Data_Quality_Platform.zip

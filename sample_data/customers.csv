@@ -1,0 +1,9 @@
+customer_id,name,email,age,city,total_spend
+1,Aarav Mehta,aarav@example.com,24,Mumbai,12000
+2,Diya Sharma,diya@example.com,29,Delhi,18000
+3,Rohan Gupta,,31,Bengaluru,15000
+4,Meera Iyer,meera@example.com,,Chennai,22000
+5,Arjun Singh,arjun@example.com,27,,17000
+5,Arjun Singh,arjun@example.com,27,,17000
+6,Nisha Patel,nisha@example.com,34,Ahmedabad,
+7,Kabir Khan,kabir@example.com,22,Hyderabad,9000
