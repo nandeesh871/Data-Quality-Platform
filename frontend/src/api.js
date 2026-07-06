@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8010";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://data-quality-platform-4r1q.onrender.com";
 
 export function getToken() {
   try {
