@@ -2611,6 +2611,8 @@ export default function App() {
       setUserProfile(data);
     } catch (err) {
       console.error("Could not fetch profile:", err.message);
+      clearToken();
+      setAuthenticated(false);
     }
   }
 
