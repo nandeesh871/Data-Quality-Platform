@@ -75,6 +75,7 @@ function AuthScreen({ onAuth }) {
   const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -87,6 +88,12 @@ function AuthScreen({ onAuth }) {
     setLoading(true);
     try {
       if (mode === "register") {
+        if (form.password !== confirmPassword) {
+          throw new Error("Passwords do not match");
+        }
+        if (form.password.length < 6) {
+          throw new Error("Password must be at least 6 characters");
+        }
         const payload = await registerUser(form);
         setToken(payload.access_token);
         onAuth();
@@ -194,7 +201,7 @@ function AuthScreen({ onAuth }) {
             </div>
           )}
 
-          {mode === "login" && (
+          {(mode === "login" || mode === "register") && (
             <div className="form-group animate-slide-in">
               <label htmlFor="auth-password">Password</label>
               <input
@@ -203,6 +210,20 @@ function AuthScreen({ onAuth }) {
                 placeholder="••••••••"
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
+                required
+              />
+            </div>
+          )}
+
+          {mode === "register" && (
+            <div className="form-group animate-slide-in">
+              <label htmlFor="auth-confirm-password">Confirm Password</label>
+              <input
+                id="auth-confirm-password"
+                type="password"
+                placeholder="••••••••"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
                 required
               />
             </div>
@@ -340,6 +361,8 @@ function AuthScreen({ onAuth }) {
               setOtp("");
               setNewPassword("");
               setConfirmNewPassword("");
+              setConfirmPassword("");
+              setForm({ name: "", email: "", password: "" });
               if (mode === "login") {
                 setMode("register");
               } else {
