@@ -3033,7 +3033,7 @@ export default function App() {
           </nav>
 
           <div className="navbar-right" ref={profileMenuRef}>
-            {userProfile && (
+            {userProfile ? (
               <div className="profile-menu-container">
                 <button 
                   className={showProfileMenu ? "profile-avatar-btn active" : "profile-avatar-btn"} 
@@ -3098,6 +3098,27 @@ export default function App() {
                   </div>
                 )}
               </div>
+            ) : (
+              authenticated && (
+                <button 
+                  className="btn-secondary btn-sm"
+                  onClick={() => {
+                    try {
+                      sessionStorage.setItem("dq_logged_out", "true");
+                    } catch (e) {
+                      window._dq_logged_out = true;
+                    }
+                    clearToken();
+                    setAuthenticated(false);
+                    setUserProfile(null);
+                    setUserSummary(null);
+                  }}
+                  style={{ display: "flex", alignItems: "center", gap: "6px" }}
+                >
+                  <LogOut size={12} />
+                  <span>Sign Out</span>
+                </button>
+              )
             )}
           </div>
         </div>
