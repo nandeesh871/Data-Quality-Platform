@@ -1,7 +1,15 @@
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_serializer
+
+
+class TimezonedModel(BaseModel):
+    @field_serializer("created_at")
+    def serialize_datetime(self, dt: datetime, _info):
+        if dt.tzinfo is None:
+            return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        return dt.isoformat()
 
 
 class UserCreate(BaseModel):
@@ -20,7 +28,7 @@ class Token(BaseModel):
     token_type: str = "bearer"
 
 
-class DatasetOut(BaseModel):
+class DatasetOut(TimezonedModel):
     id: int
     filename: str
     rows_count: int
@@ -40,7 +48,7 @@ class UserRoleUpdate(BaseModel):
 
 
 
-class UserOut(BaseModel):
+class UserOut(TimezonedModel):
     id: int
     name: str
     email: EmailStr
@@ -51,7 +59,7 @@ class UserOut(BaseModel):
         from_attributes = True
 
 
-class LineageLogOut(BaseModel):
+class LineageLogOut(TimezonedModel):
     id: int
     dataset_id: int
     user_id: int
