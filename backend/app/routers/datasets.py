@@ -228,9 +228,15 @@ def clean_dataset_route(
     db: Session = Depends(get_db),
 ):
     dataset = get_dataset_or_404(dataset_id, user, db)
-    
-    # Always read from the original uploaded path to avoid double cleaning / scaling
     original_path = get_original_path(dataset.stored_path)
+    
+    import os
+    if not os.path.exists(original_path):
+        raise HTTPException(
+            status_code=400,
+            detail="Dataset file not found on the server. Due to Render's free tier ephemeral disk, uploaded files are deleted when the server restarts. Please re-upload the CSV dataset to run this action."
+        )
+        
     df = read_dataset(original_path)
     
     cleaned = clean_dataframe(df, imputation_strategy=imputation_strategy)
@@ -290,9 +296,14 @@ def preprocess_dataset_route(
     db: Session = Depends(get_db),
 ):
     dataset = get_dataset_or_404(dataset_id, user, db)
-    
-    # Find original and cleaned file paths
     original_path = get_original_path(dataset.stored_path)
+    
+    import os
+    if not os.path.exists(original_path):
+        raise HTTPException(
+            status_code=400,
+            detail="Dataset file not found on the server. Due to Render's free tier ephemeral disk, uploaded files are deleted when the server restarts. Please re-upload the CSV dataset to run this action."
+        )
     clean_path = Path(original_path).with_name(f"cleaned_{Path(original_path).name}")
     
     # If it was cleaned previously, build preprocessing on the cleaned file. Otherwise, build on the original.
@@ -362,6 +373,14 @@ def train_dataset_route(
     db: Session = Depends(get_db),
 ):
     dataset = get_dataset_or_404(dataset_id, user, db)
+    
+    import os
+    if not os.path.exists(dataset.stored_path):
+        raise HTTPException(
+            status_code=400,
+            detail="Dataset file not found on the server. Due to Render's free tier ephemeral disk, uploaded files are deleted when the server restarts. Please re-upload the CSV dataset to run this action."
+        )
+        
     df = read_dataset(dataset.stored_path)
     
     # Train the model and get report
