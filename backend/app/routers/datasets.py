@@ -61,6 +61,12 @@ def prepare_dataset_out(d: Dataset) -> DatasetOut:
     return out
 
 
+def get_visible_lineage_logs(dataset: Dataset, user: User) -> list[LineageLog]:
+    if user.role == "admin":
+        return dataset.lineage_logs
+    return [l for l in dataset.lineage_logs if l.user_id == user.id]
+
+
 def get_dataset_or_404(dataset_id: int, user: User, db: Session) -> Dataset:
     # A user can have access to datasets uploaded by all other users
     dataset = (
@@ -120,7 +126,7 @@ async def upload_dataset(
     return {
         "dataset": prepare_dataset_out(dataset),
         "analysis": analysis,
-        "lineage_logs": prepare_lineage_logs(dataset.lineage_logs)
+        "lineage_logs": prepare_lineage_logs(get_visible_lineage_logs(dataset, user))
     }
 
 
@@ -216,7 +222,7 @@ def get_analysis(
     return {
         "dataset": prepare_dataset_out(dataset),
         "analysis": json_loads(dataset.analysis_json),
-        "lineage_logs": prepare_lineage_logs(dataset.lineage_logs)
+        "lineage_logs": prepare_lineage_logs(get_visible_lineage_logs(dataset, user))
     }
 
 
@@ -282,7 +288,7 @@ def clean_dataset_route(
     return {
         "dataset": prepare_dataset_out(dataset),
         "analysis": analysis,
-        "lineage_logs": prepare_lineage_logs(dataset.lineage_logs)
+        "lineage_logs": prepare_lineage_logs(get_visible_lineage_logs(dataset, user))
     }
 
 
@@ -360,7 +366,7 @@ def preprocess_dataset_route(
     return {
         "dataset": prepare_dataset_out(dataset),
         "analysis": analysis,
-        "lineage_logs": prepare_lineage_logs(dataset.lineage_logs)
+        "lineage_logs": prepare_lineage_logs(get_visible_lineage_logs(dataset, user))
     }
 
 
@@ -417,7 +423,7 @@ def train_dataset_route(
     return {
         "dataset": prepare_dataset_out(dataset),
         "analysis": analysis,
-        "lineage_logs": prepare_lineage_logs(dataset.lineage_logs)
+        "lineage_logs": prepare_lineage_logs(get_visible_lineage_logs(dataset, user))
     }
 
 
