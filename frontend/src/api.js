@@ -2,7 +2,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://data-quality-
 
 export function getToken() {
   try {
-    return localStorage.getItem("dq_token");
+    return sessionStorage.getItem("dq_token");
   } catch (e) {
     return window._dq_token || null;
   }
@@ -10,7 +10,7 @@ export function getToken() {
 
 export function setToken(token) {
   try {
-    localStorage.setItem("dq_token", token);
+    sessionStorage.setItem("dq_token", token);
   } catch (e) {
     window._dq_token = token;
   }
@@ -18,7 +18,7 @@ export function setToken(token) {
 
 export function clearToken() {
   try {
-    localStorage.removeItem("dq_token");
+    sessionStorage.removeItem("dq_token");
   } catch (e) {
     window._dq_token = null;
   }
