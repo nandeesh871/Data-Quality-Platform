@@ -2721,40 +2721,7 @@ export default function App() {
   }, []);
 
 
-  // Developer auto-authentication helper
-  useEffect(() => {
-    let isLoggedOut = false;
-    try {
-      isLoggedOut = Boolean(sessionStorage.getItem("dq_logged_out"));
-    } catch (e) {
-      isLoggedOut = window._dq_logged_out || false;
-    }
 
-    if (!authenticated && !isLoggedOut) {
-      const autoAuth = async () => {
-        try {
-          // Attempt default demo account login
-          const payload = await loginUser({ email: "demo@example.com", password: "password123" });
-          setToken(payload.access_token);
-          setAuthenticated(true);
-        } catch (err) {
-          // If demo account doesn't exist yet, register it
-          try {
-            const payload = await registerUser({
-              name: "Demo User",
-              email: "demo@example.com",
-              password: "password123"
-            });
-            setToken(payload.access_token);
-            setAuthenticated(true);
-          } catch (regErr) {
-            console.warn("Auto-login registration skipped:", regErr.message);
-          }
-        }
-      };
-      autoAuth();
-    }
-  }, [authenticated]);
 
 
   async function refreshDatasets(searchVal = "") {
