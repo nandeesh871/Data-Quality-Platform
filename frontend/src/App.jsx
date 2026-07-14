@@ -1907,6 +1907,9 @@ function Dashboard({
           <button className={pipelineTab === "train" ? "active" : ""} onClick={() => setPipelineTab("train")}>
             <BrainCircuit size={16} /> 3. Model Training
           </button>
+          <button className={pipelineTab === "profile" ? "active" : ""} onClick={() => setPipelineTab("profile")}>
+            <Database size={16} /> 4. Schema & Profiler
+          </button>
         </div>
 
         <div className="pipeline-content-area">
@@ -2026,6 +2029,51 @@ function Dashboard({
               <button className="btn-primary" onClick={() => onTrain(targetColumn, algo)}>
                 Train & Evaluate Model
               </button>
+            </div>
+          )}
+
+          {pipelineTab === "profile" && (
+            <div className="pipeline-tab-pane animate-fade-in">
+              <h3>Schema & Column Profile</h3>
+              <p className="muted text-sm mb-4">Detailed technical breakdown of all detected columns, data types, and completeness statistics.</p>
+              
+              <div className="table-responsive">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Column Name</th>
+                      <th>Data Type</th>
+                      <th>Missing Count</th>
+                      <th>Missing Ratio</th>
+                      <th>Completeness</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {analysis.column_names.map((col) => {
+                      const type = analysis.data_types[col] || "unknown";
+                      const missing = analysis.missing_by_column[col] || 0;
+                      const missingRatio = analysis.rows_count ? (missing / analysis.rows_count) : 0;
+                      const completeness = (100 - (missingRatio * 100)).toFixed(1);
+                      return (
+                        <tr key={col}>
+                          <td><strong>{col}</strong></td>
+                          <td><code className="text-xs">{type}</code></td>
+                          <td>{missing}</td>
+                          <td>{(missingRatio * 100).toFixed(1)}%</td>
+                          <td>
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                              <div style={{ flex: 1, height: "6px", background: "var(--border-color)", borderRadius: "3px", overflow: "hidden" }}>
+                                <div style={{ height: "100%", width: `${completeness}%`, background: parseFloat(completeness) > 90 ? "var(--color-success)" : parseFloat(completeness) > 50 ? "var(--color-warning)" : "var(--color-danger)" }}></div>
+                              </div>
+                              <span style={{ fontSize: "11px", fontWeight: "600", width: "40px", textAlign: "right" }}>{completeness}%</span>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>

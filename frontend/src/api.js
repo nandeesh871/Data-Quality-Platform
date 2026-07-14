@@ -45,7 +45,12 @@ async function request(path, options = {}) {
     if (error.name === "AbortError") {
       throw new Error("Backend is taking too long. Restart the backend and try a smaller CSV file.");
     }
-    throw new Error("Could not connect to backend. Check that FastAPI is running on port 8010.");
+    const isLocal = API_BASE_URL.includes("localhost") || API_BASE_URL.includes("127.0.0.1");
+    if (isLocal) {
+      throw new Error("Could not connect to backend. Check that FastAPI is running locally on port 8010.");
+    } else {
+      throw new Error("Could not connect to backend. The cloud service may be waking up (please wait ~50 seconds and try again) or is offline.");
+    }
   } finally {
     window.clearTimeout(timeout);
   }

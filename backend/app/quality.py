@@ -380,6 +380,7 @@ def train_dataset_model(
         return {
             "target_column": "Total Dataset" if is_total_dataset else target,
             "model_type": model_display_names.get(best_name, best_name.title()),
+            "algo": best_name,
             "task_type": "regression",
             "train_rows": int(len(X_train)),
             "test_rows": int(len(X_test)),
@@ -503,6 +504,7 @@ def train_dataset_model(
         return {
             "target_column": "Total Dataset" if is_total_dataset else target,
             "model_type": model_display_names.get(best_name, best_name.title()),
+            "algo": best_name,
             "task_type": "classification",
             "train_rows": int(len(X_train)),
             "test_rows": int(len(X_test_final)),

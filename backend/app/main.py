@@ -27,12 +27,6 @@ def ensure_database_columns():
         with engine.begin() as connection:
             connection.execute(text("ALTER TABLE users ADD COLUMN otp_expiry DATETIME NULL"))
     with engine.begin() as connection:
-        # Demote all other users from admin to user
-        connection.execute(text("UPDATE users SET role = 'user' WHERE email != '24130500362@reva.edu.in'"))
-        
-        # Force 24130500362@reva.edu.in to be admin if they exist in the database
-        connection.execute(text("UPDATE users SET role = 'admin' WHERE email = '24130500362@reva.edu.in'"))
-        
         # Fallback to make the first user admin if there are no admins
         admin_count = connection.execute(text("SELECT COUNT(*) FROM users WHERE role = 'admin'")).scalar()
         if admin_count == 0:
