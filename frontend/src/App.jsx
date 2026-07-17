@@ -71,6 +71,8 @@ import {
   requestOTP,
   verifyOTPLogin,
   verifyOTPReset,
+  searchHubDatasets,
+  importHubDataset,
 } from "./api";
 
 function AuthScreen({ onAuth }) {
@@ -1138,20 +1140,221 @@ function DatasetLibrary({
   loading,
   handleUpload,
   uploadLoading,
+  onImport,
 }) {
+  const [activeIngestTab, setActiveIngestTab] = useState("upload"); // upload, discover
+  const [hubQuery, setHubQuery] = useState("");
+  const [hubResults, setHubResults] = useState([]);
+  const [hubLoading, setHubLoading] = useState(false);
+  const [importingId, setImportingId] = useState(null);
+  const [hubError, setHubError] = useState("");
+
+  // Load popular templates initially when switching to Discover tab
+  useEffect(() => {
+    if (activeIngestTab === "discover" && hubResults.length === 0 && !hubQuery) {
+      setHubLoading(true);
+      setHubError("");
+      searchHubDatasets("")
+        .then((res) => setHubResults(res))
+        .catch((err) => setHubError(err.message))
+        .finally(() => setHubLoading(false));
+    }
+  }, [activeIngestTab]);
+
+  const handleHubSearch = async () => {
+    setHubLoading(true);
+    setHubError("");
+    try {
+      const res = await searchHubDatasets(hubQuery);
+      setHubResults(res);
+    } catch (err) {
+      setHubError(err.message || "Failed to search external hubs.");
+    } finally {
+      setHubLoading(false);
+    }
+  };
+
+  const handleHubImport = async (result) => {
+    setImportingId(result.id);
+    setHubError("");
+    try {
+      await onImport(result);
+    } catch (err) {
+      setHubError(err.message || "Failed to import dataset.");
+    } finally {
+      setImportingId(null);
+    }
+  };
+
   return (
     <section className="library-layout animate-fade-in">
-      <div className="hero-upload-container">
+      <div className="hero-upload-container" style={{ paddingBottom: "24px" }}>
         <div className="hero-banner">
           <h2>Ingest & Analyze New Dataset</h2>
-          <p>Upload a CSV file to automatically audit column completeness, execute cleaning strategies, normalise features, and evaluate ML models.</p>
+          <p>Upload your own CSV file or search and import datasets directly from external hubs like Kaggle and Hugging Face to start the pipeline.</p>
         </div>
-        <label className="central-upload-box">
-          <Upload size={32} />
-          <h3>{uploadLoading ? "Uploading & Analyzing..." : "Upload CSV Dataset"}</h3>
-          <p>Click to browse files or drag and drop a CSV here</p>
-          <input type="file" accept=".csv" onChange={handleUpload} disabled={uploadLoading} />
-        </label>
+
+        {/* Tab Selection */}
+        <div className="ingest-tabs" style={{ display: "flex", gap: "24px", marginBottom: "20px", borderBottom: "1px solid var(--border-color)", paddingBottom: "8px", width: "100%" }}>
+          <button 
+            className={`btn-tab ${activeIngestTab === "upload" ? "active" : ""}`} 
+            onClick={() => setActiveIngestTab("upload")}
+            style={{ 
+              background: "none", 
+              border: "none", 
+              color: activeIngestTab === "upload" ? "var(--color-primary)" : "var(--text-muted)", 
+              borderBottom: activeIngestTab === "upload" ? "2px solid var(--color-primary)" : "2px solid transparent", 
+              padding: "8px 4px",
+              fontWeight: "600", 
+              fontSize: "14px",
+              cursor: "pointer",
+              transition: "all 0.2s"
+            }}
+          >
+            Upload Local CSV
+          </button>
+          <button 
+            className={`btn-tab ${activeIngestTab === "discover" ? "active" : ""}`} 
+            onClick={() => setActiveIngestTab("discover")}
+            style={{ 
+              background: "none", 
+              border: "none", 
+              color: activeIngestTab === "discover" ? "var(--color-primary)" : "var(--text-muted)", 
+              borderBottom: activeIngestTab === "discover" ? "2px solid var(--color-primary)" : "2px solid transparent", 
+              padding: "8px 4px",
+              fontWeight: "600", 
+              fontSize: "14px",
+              cursor: "pointer",
+              transition: "all 0.2s"
+            }}
+          >
+            Discover Datasets (Kaggle / Hugging Face)
+          </button>
+        </div>
+
+        {activeIngestTab === "upload" ? (
+          <label className="central-upload-box">
+            <Upload size={32} />
+            <h3>{uploadLoading ? "Uploading & Analyzing..." : "Upload CSV Dataset"}</h3>
+            <p>Click to browse files or drag and drop a CSV here</p>
+            <input type="file" accept=".csv" onChange={handleUpload} disabled={uploadLoading} />
+          </label>
+        ) : (
+          <div style={{ width: "100%" }}>
+            {/* Hub Search Box */}
+            <div style={{ display: "flex", gap: "12px", marginBottom: "20px" }}>
+              <div style={{ position: "relative", flex: 1 }}>
+                <Search size={18} style={{ position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
+                <input
+                  type="text"
+                  placeholder="Search Kaggle & Hugging Face Hub (e.g. titanic, diabetes, iris)..."
+                  value={hubQuery}
+                  onChange={(e) => setHubQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleHubSearch()}
+                  style={{ 
+                    width: "100%", 
+                    padding: "12px 14px 12px 42px", 
+                    borderRadius: "var(--radius-sm)", 
+                    border: "1px solid var(--border-color)", 
+                    backgroundColor: "var(--bg-secondary)", 
+                    color: "var(--text-primary)",
+                    fontSize: "14px"
+                  }}
+                />
+              </div>
+              <button 
+                className="btn-open" 
+                onClick={handleHubSearch} 
+                disabled={hubLoading}
+                style={{ padding: "0 24px", height: "46px" }}
+              >
+                {hubLoading ? "Searching..." : "Search"}
+              </button>
+            </div>
+
+            {/* Hub Error Display */}
+            {hubError && (
+              <div style={{ color: "var(--color-danger)", backgroundColor: "rgba(239, 68, 68, 0.1)", border: "1px solid rgba(239, 68, 68, 0.2)", padding: "10px 14px", borderRadius: "var(--radius-sm)", fontSize: "13px", marginBottom: "16px" }}>
+                {hubError}
+              </div>
+            )}
+
+            {/* Results Grid */}
+            {hubLoading ? (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "40px 0", gap: "12px" }}>
+                <RefreshCw size={32} className="animate-spin text-primary" />
+                <p style={{ color: "var(--text-muted)", fontSize: "14px" }}>Searching external dataset repositories...</p>
+              </div>
+            ) : hubResults.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "30px 0", color: "var(--text-muted)" }}>
+                <Database size={32} style={{ marginBottom: "10px", opacity: 0.5 }} />
+                <p style={{ margin: 0 }}>No datasets found matching your search. Try another query.</p>
+              </div>
+            ) : (
+              <div>
+                <div style={{ fontSize: "12px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: "700", marginBottom: "12px", letterSpacing: "0.5px" }}>
+                  {!hubQuery ? "Recommended Quick-Start Datasets" : `Found ${hubResults.length} Matching Datasets`}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "16px" }}>
+                  {hubResults.map((result) => (
+                    <article 
+                      key={result.id} 
+                      style={{ 
+                        display: "flex", 
+                        flexDirection: "column", 
+                        justifyContent: "space-between", 
+                        padding: "16px", 
+                        border: "1px solid var(--border-color)", 
+                        borderRadius: "var(--radius-sm)", 
+                        backgroundColor: "var(--bg-secondary)",
+                        transition: "transform 0.2s, box-shadow 0.2s"
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                          <span 
+                            style={{ 
+                              fontSize: "10px", 
+                              padding: "3px 8px", 
+                              borderRadius: "4px", 
+                              fontWeight: "bold", 
+                              textTransform: "uppercase",
+                              backgroundColor: result.source === "kaggle" ? "rgba(6, 182, 212, 0.15)" : "rgba(234, 179, 8, 0.15)", 
+                              color: result.source === "kaggle" ? "var(--color-cyan)" : "var(--color-warning)" 
+                            }}
+                          >
+                            {result.source === "kaggle" ? "Kaggle" : "Hugging Face"}
+                          </span>
+                          <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>{result.size}</span>
+                        </div>
+                        <h4 style={{ margin: "0 0 6px 0", color: "var(--text-primary)", fontSize: "14px", fontWeight: "600", lineBreak: "anywhere" }} title={result.name}>
+                          {result.name}
+                        </h4>
+                        <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: "0 0 16px 0", lineHeight: "1.4", height: "60px", overflow: "hidden", textOverflow: "ellipsis" }} title={result.description}>
+                          {result.description}
+                        </p>
+                      </div>
+                      <button 
+                        className="btn-open" 
+                        onClick={() => handleHubImport(result)}
+                        disabled={importingId !== null}
+                        style={{ width: "100%", justifyContent: "center", height: "36px", padding: 0 }}
+                      >
+                        {importingId === result.id ? (
+                          <>
+                            <RefreshCw size={14} className="animate-spin" style={{ marginRight: "8px" }} /> Ingesting...
+                          </>
+                        ) : (
+                          "Import to Catalog"
+                        )}
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="library-content-divider">
@@ -1193,7 +1396,23 @@ function DatasetLibrary({
               </div>
               <h3 title={dataset.filename}>{dataset.filename}</h3>
               <div className="dataset-metadata">
-                <span className="owner-badge">Uploader: {dataset.owner_name || "System"}</span>
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
+                  <span className="owner-badge">Uploader: {dataset.owner_name || "System"}</span>
+                  <span 
+                    className={`badge-source source-${dataset.source || 'upload'}`} 
+                    style={{
+                      fontSize: "9px",
+                      padding: "2px 6px",
+                      borderRadius: "4px",
+                      fontWeight: "bold",
+                      textTransform: "uppercase",
+                      backgroundColor: dataset.source === "kaggle" ? "rgba(6, 182, 212, 0.15)" : dataset.source === "huggingface" ? "rgba(234, 179, 8, 0.15)" : "rgba(139, 92, 246, 0.15)",
+                      color: dataset.source === "kaggle" ? "var(--color-cyan)" : dataset.source === "huggingface" ? "var(--color-warning)" : "var(--color-secondary)"
+                    }}
+                  >
+                    {dataset.source === "kaggle" ? "Kaggle" : dataset.source === "huggingface" ? "Hugging Face" : "Upload"}
+                  </span>
+                </div>
                 <p>{dataset.rows_count.toLocaleString()} rows × {dataset.columns_count} columns</p>
               </div>
               <div className="quality-progress-bar">
@@ -3260,6 +3479,24 @@ export default function App() {
     }
   }
 
+  async function handleImport(datasetDetails) {
+    setLoading(true);
+    setMessage("");
+    try {
+      const result = await importHubDataset(datasetDetails);
+      setSelected(result);
+      await refreshDatasets(search);
+      await refreshUserSummary();
+      await fetchDownloadHistory();
+      setView("dataset_detail");
+      setMessage("Dataset imported and quality scores generated.");
+    } catch (err) {
+      setMessage(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function openDataset(id) {
     setLoading(true);
     setMessage("");
@@ -3798,6 +4035,7 @@ export default function App() {
               loading={loading}
               handleUpload={handleUpload}
               uploadLoading={loading}
+              onImport={handleImport}
             />
           ) : view === "downloads" ? (
             <UserDownloadsView

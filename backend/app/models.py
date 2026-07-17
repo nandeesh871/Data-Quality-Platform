@@ -31,6 +31,7 @@ class Dataset(Base):
     columns_count: Mapped[int] = mapped_column(Integer, default=0)
     quality_score: Mapped[float] = mapped_column(Float, default=0)
     status: Mapped[str] = mapped_column(String(50), default="uploaded")
+    source: Mapped[str] = mapped_column(String(50), default="upload")
     analysis_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

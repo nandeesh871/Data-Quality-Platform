@@ -9,3 +9,5 @@
 [2026-07-06 11:04:51] Email: 24130500362@reva.edu.in | OTP: 475653 | Purpose: Reset Password
 [2026-07-15 00:56:16] Email: nandeesh871@gmail.com | OTP: 528997 | Purpose: Login
 [2026-07-15 00:58:17] Email: nandeesh871@gmail.com | OTP: 399019 | Purpose: Reset Password
+[2026-07-17 09:37:40] Email: nandeesh871@gmail.com | OTP: 433574 | Purpose: Login
+[2026-07-17 09:38:22] Email: 24130500362@reva.edu.in | OTP: 723732 | Purpose: Login

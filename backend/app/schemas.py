@@ -35,6 +35,7 @@ class DatasetOut(TimezonedModel):
     columns_count: int
     quality_score: float
     status: str
+    source: str
     created_at: datetime
     owner_id: int
     owner_name: str | None = None

@@ -232,5 +232,17 @@ export async function downloadDataset(id, format, filename = "dataset", version 
   window.URL.revokeObjectURL(url);
 }
 
+export function searchHubDatasets(query) {
+  return request(`/api/datasets/hub/search?q=${encodeURIComponent(query)}`);
+}
+
+export function importHubDataset(datasetDetails) {
+  return request("/api/datasets/hub/import", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(datasetDetails),
+  });
+}
+
 
 

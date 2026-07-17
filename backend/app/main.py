@@ -6,7 +6,7 @@ from sqlalchemy import inspect, text
 
 from .database import Base, engine, settings
 from . import models
-from .routers import admin, auth, datasets
+from .routers import admin, auth, datasets, dataset_hub
 
 Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
 Base.metadata.create_all(bind=engine)
@@ -34,6 +34,12 @@ def ensure_database_columns():
             if first_user:
                 connection.execute(text("UPDATE users SET role = 'admin' WHERE id = :id"), {"id": first_user})
 
+    if "datasets" in inspector.get_table_names():
+        dataset_cols = {column["name"] for column in inspector.get_columns("datasets")}
+        if "source" not in dataset_cols:
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE datasets ADD COLUMN source VARCHAR(50) DEFAULT 'upload'"))
+
 
 ensure_database_columns()
 
@@ -56,6 +62,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(datasets.router, prefix="/api/datasets", tags=["Datasets"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
+app.include_router(dataset_hub.router, prefix="/api/datasets/hub", tags=["Dataset Hub"])
 
 
 @app.get("/")
