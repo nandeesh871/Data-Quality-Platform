@@ -90,10 +90,10 @@ def change_password(
 
 
 def send_otp_email(to_email: str, otp: str, purpose: str) -> tuple[bool, str]:
-    from email.mime.multipart import MIMEMultipart
-    from email.mime.text import MIMEText
     import smtplib
-    
+    from email.message import EmailMessage
+    from datetime import datetime
+
     # 1. Log to file first (always keep this as fallback/simulation backup)
     try:
         from pathlib import Path
@@ -106,7 +106,6 @@ def send_otp_email(to_email: str, otp: str, purpose: str) -> tuple[bool, str]:
             curr = curr.parent
         
         log_path = project_root / "otp_code.txt"
-        from datetime import datetime
         with open(log_path, "a", encoding="utf-8") as f:
             f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Email: {to_email} | OTP: {otp} | Purpose: {purpose}\n")
     except Exception as log_err:
@@ -139,43 +138,50 @@ def send_otp_email(to_email: str, otp: str, purpose: str) -> tuple[bool, str]:
 
     # 3. Attempt real SMTP dispatch
     try:
-        msg = MIMEMultipart()
+        msg = EmailMessage()
+        msg["Subject"] = f"Your OTP Verification Code: {otp}"
         msg["From"] = sender
         msg["To"] = to_email
-        msg["Subject"] = f"Your OTP Verification Code: {otp}"
 
         html_body = f"""
         <html>
-            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-                <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
-                    <h2 style="color: #4f46e5; margin-bottom: 20px;">Data Quality Hub OTP Verification</h2>
-                    <p>Hello,</p>
-                    <p>You requested a verification code to perform the following action: <strong>{purpose}</strong>.</p>
-                    <div style="background-color: #f8fafc; padding: 15px; text-align: center; border-radius: 6px; margin: 20px 0;">
-                        <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #1e293b;">{otp}</span>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f8fafc; padding: 20px;">
+                <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 30px; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                    <div style="text-align: center; border-bottom: 2px solid #4f46e5; padding-bottom: 15px; margin-bottom: 25px;">
+                        <h2 style="color: #4f46e5; margin: 0; font-size: 24px; font-weight: bold;">Data Quality Hub</h2>
+                        <p style="color: #64748b; margin: 5px 0 0 0; font-size: 14px;">OTP Verification Service</p>
                     </div>
-                    <p style="color: #64748b; font-size: 14px;">This OTP is valid for 5 minutes. If you did not request this, please ignore this email.</p>
-                    <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
-                    <p style="font-size: 12px; color: #94a3b8;">Data Quality Platform Team</p>
+                    <p style="font-size: 16px; color: #1e293b;">Hello,</p>
+                    <p style="font-size: 16px; color: #1e293b;">You requested a verification code to perform the following action: <strong>{purpose}</strong>.</p>
+                    <div style="background-color: #f1f5f9; padding: 20px; text-align: center; border-radius: 8px; margin: 25px 0; border: 1px dashed #cbd5e1;">
+                        <span style="font-size: 36px; font-weight: bold; letter-spacing: 6px; color: #4f46e5;">{otp}</span>
+                    </div>
+                    <p style="color: #64748b; font-size: 14px; margin-bottom: 25px;">This OTP is valid for 5 minutes. If you did not request this, please ignore this email.</p>
+                    <div style="border-top: 1px solid #e2e8f0; padding-top: 20px; font-size: 12px; color: #94a3b8; text-align: center;">
+                        <p style="margin: 0;">This is an automated security transmission. Please do not reply.</p>
+                        <p style="margin: 5px 0 0 0;">&copy; {datetime.now().year} Data Quality Platform Team</p>
+                    </div>
                 </div>
             </body>
         </html>
         """
-        msg.attach(MIMEText(html_body, "html"))
+        msg.set_content(f"Your OTP is {otp} to perform {purpose}.")
+        msg.add_alternative(html_body, subtype="html")
 
         # Setup SMTP server
         # For Gmail, TLS is used on port 587, SSL on 465.
-        if port == 465:
-            server = smtplib.SMTP_SSL(host, port, timeout=10)
+        if int(port) == 465:
+            with smtplib.SMTP_SSL(host, int(port), timeout=10) as server:
+                server.login(user, password)
+                server.send_message(msg)
         else:
-            server = smtplib.SMTP(host, port, timeout=10)
-            server.ehlo()
-            server.starttls()
-            server.ehlo()
+            with smtplib.SMTP(host, int(port), timeout=10) as server:
+                server.ehlo()
+                server.starttls()
+                server.ehlo()
+                server.login(user, password)
+                server.send_message(msg)
 
-        server.login(user, password)
-        server.sendmail(sender, to_email, msg.as_string())
-        server.quit()
         print(f"Successfully sent OTP email to {to_email} via SMTP.")
         return True, "sent"
     except Exception as smtp_err:
