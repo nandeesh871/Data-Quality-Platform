@@ -61,3 +61,16 @@ app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 @app.get("/")
 def health_check():
     return {"message": "Data Quality Analysis API is running"}
+
+
+@app.get("/api/db-debug")
+def db_debug():
+    url = settings.database_url
+    prefix = url.split("://")[0] if "://" in url else "unknown"
+    host = url.split("@")[-1] if "@" in url else url.split("///")[-1]
+    return {
+        "db_type": prefix,
+        "db_host": host,
+        "is_postgres": url.startswith("postgres"),
+        "is_sqlite": url.startswith("sqlite")
+    }
