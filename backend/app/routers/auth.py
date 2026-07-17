@@ -209,16 +209,16 @@ def request_otp(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
         except Exception:
             pass
         return {
-            "message": "OTP generated in simulation mode. Please use the master bypass code 123456 to verify."
+            "message": f"OTP generated in simulation mode: {otp}. Please enter this code to verify."
         }
 
     if status == "simulated":
         return {
-            "message": "OTP generated in simulation mode (check otp_code.txt or use bypass code 123456)."
+            "message": f"OTP generated in simulation mode: {otp}."
         }
     else:
         return {
-            "message": f"OTP successfully sent to {payload.email}."
+            "message": f"OTP successfully sent to {payload.email}. Please check your inbox."
         }
 
 
@@ -229,8 +229,7 @@ def verify_otp_login(payload: OTPLoginVerify, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="User not found")
 
     if not user.otp_code or user.otp_code != payload.otp:
-        if payload.otp != "123456":
-            raise HTTPException(status_code=400, detail="Invalid OTP code")
+        raise HTTPException(status_code=400, detail="Invalid OTP code")
 
     if not user.otp_expiry or datetime.utcnow() > user.otp_expiry:
         raise HTTPException(status_code=400, detail="OTP code has expired")
@@ -251,8 +250,7 @@ def verify_otp_reset(payload: OTPResetVerify, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="User not found")
 
     if not user.otp_code or user.otp_code != payload.otp:
-        if payload.otp != "123456":
-            raise HTTPException(status_code=400, detail="Invalid OTP code")
+        raise HTTPException(status_code=400, detail="Invalid OTP code")
 
     if not user.otp_expiry or datetime.utcnow() > user.otp_expiry:
         raise HTTPException(status_code=400, detail="OTP code has expired")
