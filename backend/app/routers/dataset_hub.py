@@ -63,8 +63,8 @@ POPULAR_TEMPLATES = [
 def search_huggingface(query: str) -> list[dict]:
     results = []
     try:
-        url = f"https://huggingface.co/api/datasets?search={query}&limit=10"
-        resp = requests.get(url, timeout=5)
+        url = "https://huggingface.co/api/datasets"
+        resp = requests.get(url, params={"search": query, "limit": 25}, timeout=5)
         if resp.status_code == 200:
             data = resp.json()
             for item in data:
