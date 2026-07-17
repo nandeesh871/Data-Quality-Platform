@@ -5,7 +5,7 @@ from pydantic import BaseModel, EmailStr, field_serializer
 
 
 class TimezonedModel(BaseModel):
-    @field_serializer("created_at")
+    @field_serializer("created_at", check_fields=False)
     def serialize_datetime(self, dt: datetime, _info):
         if dt.tzinfo is None:
             return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
