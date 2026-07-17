@@ -30,6 +30,23 @@
   --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.45);
 }
 
+:root.light-theme {
+  --bg-app: #f1f5f9;
+  --bg-surface: #ffffff;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f8fafc;
+  --border-color: #cbd5e1;
+  --border-glow: #6366f1;
+  
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -2358,5 +2375,176 @@ tr:hover td {
   font-size: 11px;
   padding: 2px 6px;
 }
+
+/* Password Input with Visibility Eye Toggle */
+.password-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.password-input-wrapper input {
+  padding-right: 42px !important;
+  width: 100%;
+}
+
+.password-toggle-btn {
+  position: absolute;
+  right: 12px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  z-index: 5;
+}
+
+.password-toggle-btn:hover {
+  color: var(--color-cyan);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Two-pane settings and profile layout */
+.settings-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 24px;
+  margin-top: 8px;
+}
+
+.settings-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  height: fit-content;
+  box-shadow: var(--shadow-sm);
+}
+
+.settings-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  transition: all 0.2s ease;
+}
+
+.settings-tab-btn:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+}
+
+.settings-tab-btn.active {
+  background: rgba(34, 211, 238, 0.08);
+  color: #22d3ee;
+  border: 1px solid rgba(34, 211, 238, 0.15);
+  font-weight: 600;
+}
+
+.settings-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Theme selector buttons */
+.theme-selector-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.theme-card-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--bg-surface);
+  border: 2px solid var(--border-color);
+  padding: 20px 16px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+}
+
+.theme-card-option:hover {
+  border-color: var(--text-muted);
+  color: var(--text-primary);
+  transform: translateY(-2px);
+}
+
+.theme-card-option.active {
+  border-color: var(--color-cyan);
+  color: #22d3ee;
+  background: rgba(6, 182, 212, 0.05);
+}
+
+.theme-icon-circle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  transition: all 0.2s ease;
+}
+
+.theme-card-option.active .theme-icon-circle {
+  border-color: var(--color-cyan);
+  color: var(--color-cyan);
+  background: rgba(6, 182, 212, 0.1);
+}
+
+/* Light mode adjustments for components */
+:root.light-theme .card {
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06);
+}
+:root.light-theme .admin-table th {
+  background-color: #f1f5f9;
+  color: #475569;
+}
+:root.light-theme .admin-table tr:hover {
+  background-color: #f8fafc;
+}
+:root.light-theme .form-control,
+:root.light-theme input,
+:root.light-theme select {
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+:root.light-theme .chart-box {
+  background-color: #f8fafc;
+  border: 1px solid #cbd5e1;
+}
+:root.light-theme .pipeline-tabs-sidebar button.active {
+  background: rgba(99, 102, 241, 0.08);
+  color: var(--color-secondary);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+}
+
 
 
