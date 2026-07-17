@@ -41,7 +41,8 @@ import {
   Mail,
   Calendar,
   Eye,
-  EyeOff
+  EyeOff,
+  FileText
 } from "lucide-react";
 import {
   cleanDataset,
@@ -64,6 +65,7 @@ import {
   getCurrentUser,
   updateUserProfile,
   changePassword,
+  deleteMe,
   getUserSummary,
   getDownloadHistory,
   requestOTP,
@@ -2427,8 +2429,8 @@ function Dashboard({
   );
 }
 
-function UserProfileView({ userProfile, onProfileUpdate, onPasswordChange, theme, setTheme }) {
-  const [activeSubTab, setActiveSubTab] = useState("profile"); // profile, settings
+function UserProfileView({ userProfile, onProfileUpdate, onPasswordChange, theme, setTheme, onLogout }) {
+  const [activeSubTab, setActiveSubTab] = useState("profile"); // profile, password, delete_account, terms, about, theme, contact
   const [profileForm, setProfileForm] = useState({
     name: userProfile?.name || "",
     email: userProfile?.email || "",
@@ -2448,6 +2450,11 @@ function UserProfileView({ userProfile, onProfileUpdate, onPasswordChange, theme
   const [passwordSuccess, setPasswordSuccess] = useState("");
   const [updatingProfile, setUpdatingProfile] = useState(false);
   const [updatingPassword, setUpdatingPassword] = useState(false);
+
+  // Account deletion states
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   useEffect(() => {
     if (userProfile) {
@@ -2502,23 +2509,153 @@ function UserProfileView({ userProfile, onProfileUpdate, onPasswordChange, theme
     }
   }
 
+  async function handleDeleteAccount(e) {
+    e.preventDefault();
+    if (!deleteConfirm) {
+      setDeleteError("Please check the confirmation box to proceed.");
+      return;
+    }
+    setDeletingAccount(true);
+    setDeleteError("");
+    try {
+      await deleteMe();
+      alert("Your account has been permanently deleted.");
+      onLogout();
+    } catch (err) {
+      setDeleteError(err.message);
+    } finally {
+      setDeletingAccount(false);
+    }
+  }
+
   return (
     <section className="profile-section">
       <div className="settings-layout">
         <aside className="settings-sidebar">
+          {/* Top User Profile details as per the reference drawing */}
+          <div className="settings-user-profile" style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            paddingBottom: "16px",
+            borderBottom: "1px solid var(--border-color)",
+            marginBottom: "16px"
+          }}>
+            <div style={{
+              width: "44px",
+              height: "44px",
+              borderRadius: "50%",
+              backgroundColor: "rgba(6, 182, 212, 0.1)",
+              border: "2px solid var(--color-cyan)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "var(--color-cyan)",
+              fontSize: "18px",
+              fontWeight: "700"
+            }}>
+              {userProfile?.name ? userProfile.name.charAt(0).toUpperCase() : <User size={18} />}
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
+              <span style={{ fontWeight: "700", color: "var(--text-primary)", fontSize: "14px", whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>
+                {userProfile?.name || "User"}
+              </span>
+              <span style={{ fontSize: "11px", color: "var(--text-muted)", whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>
+                {userProfile?.email || "email@example.com"}
+              </span>
+            </div>
+          </div>
+
+          <div className="settings-group-label" style={{
+            fontSize: "10px",
+            fontWeight: "700",
+            textTransform: "uppercase",
+            color: "var(--text-muted)",
+            letterSpacing: "0.05em",
+            margin: "4px 0 6px 4px"
+          }}>
+            Account
+          </div>
+          
           <button 
             className={`settings-tab-btn ${activeSubTab === "profile" ? "active" : ""}`}
             onClick={() => setActiveSubTab("profile")}
           >
-            <User size={16} />
-            <span>Profile Details</span>
+            <User size={14} />
+            <span>Profile Settings</span>
           </button>
+          
           <button 
-            className={`settings-tab-btn ${activeSubTab === "settings" ? "active" : ""}`}
-            onClick={() => setActiveSubTab("settings")}
+            className={`settings-tab-btn ${activeSubTab === "password" ? "active" : ""}`}
+            onClick={() => setActiveSubTab("password")}
           >
-            <Settings2 size={16} />
-            <span>App Preferences</span>
+            <Key size={14} />
+            <span>Change Password</span>
+          </button>
+          
+          <button 
+            className={`settings-tab-btn ${activeSubTab === "delete_account" ? "active" : ""}`}
+            onClick={() => setActiveSubTab("delete_account")}
+            style={{ color: "#ef4444" }}
+          >
+            <ShieldAlert size={14} />
+            <span>Delete Account</span>
+          </button>
+
+          <div style={{ height: "1px", background: "var(--border-color)", margin: "8px 0" }}></div>
+
+          <div className="settings-group-label" style={{
+            fontSize: "10px",
+            fontWeight: "700",
+            textTransform: "uppercase",
+            color: "var(--text-muted)",
+            letterSpacing: "0.05em",
+            margin: "4px 0 6px 4px"
+          }}>
+            Platform
+          </div>
+
+          <button 
+            className={`settings-tab-btn ${activeSubTab === "terms" ? "active" : ""}`}
+            onClick={() => setActiveSubTab("terms")}
+          >
+            <FileText size={14} />
+            <span>Terms & Conditions</span>
+          </button>
+
+          <button 
+            className={`settings-tab-btn ${activeSubTab === "about" ? "active" : ""}`}
+            onClick={() => setActiveSubTab("about")}
+          >
+            <BrainCircuit size={14} />
+            <span>About Project</span>
+          </button>
+
+          <button 
+            className={`settings-tab-btn ${activeSubTab === "theme" ? "active" : ""}`}
+            onClick={() => setActiveSubTab("theme")}
+          >
+            <Sparkle size={14} />
+            <span>Theme Selection</span>
+          </button>
+
+          <button 
+            className={`settings-tab-btn ${activeSubTab === "contact" ? "active" : ""}`}
+            onClick={() => setActiveSubTab("contact")}
+          >
+            <Mail size={14} />
+            <span>Contact Us</span>
+          </button>
+
+          <div style={{ height: "1px", background: "var(--border-color)", margin: "8px 0" }}></div>
+
+          <button 
+            className="settings-tab-btn logout-item"
+            onClick={onLogout}
+            style={{ color: "#ef4444", marginTop: "16px" }}
+          >
+            <LogOut size={14} />
+            <span>Sign Out</span>
           </button>
         </aside>
 
@@ -2526,7 +2663,7 @@ function UserProfileView({ userProfile, onProfileUpdate, onPasswordChange, theme
           {activeSubTab === "profile" && (
             <div className="card animate-fade-in">
               <h2>Profile Settings</h2>
-              <p className="muted text-sm mb-4">Manage your personal account details and communication settings.</p>
+              <p className="muted text-sm mb-4">Manage your personal account details (full name and registered Gmail address).</p>
 
               <form onSubmit={handleUpdateProfile} className="auth-form" style={{ maxWidth: "480px" }}>
                 <div className="form-group">
@@ -2561,135 +2698,284 @@ function UserProfileView({ userProfile, onProfileUpdate, onPasswordChange, theme
             </div>
           )}
 
-          {activeSubTab === "settings" && (
-            <>
-              <div className="card animate-fade-in">
-                <h2>About the Project</h2>
-                <p className="muted text-sm mb-4">Core capabilities and purpose of the Data Quality Hub.</p>
-                <div style={{ lineHeight: "1.6", color: "var(--text-secondary)", fontSize: "14px" }}>
-                  <p className="mb-2">
-                    <strong>Data Quality Hub</strong> is a premium, enterprise-grade analytics, validation, cleaning, and machine learning platform.
-                  </p>
-                  <p>
-                    It helps you upload raw datasets, automatically profiles columns and checks for missing entries, performs outlier handling and data cleaning, trains custom predictive machine learning models, and exports the clean results in Excel and CSV formats.
-                  </p>
-                </div>
-              </div>
+          {activeSubTab === "password" && (
+            <div className="card animate-fade-in">
+              <h2>Security & Password</h2>
+              <p className="muted text-sm mb-4">Update your password regularly to maintain a high level of security.</p>
 
-              <div className="card animate-fade-in">
-                <h2>App Theme Preferences</h2>
-                <p className="muted text-sm mb-4">Select your preferred user interface appearance.</p>
-                
-                <div className="theme-selector-grid">
-                  <div 
-                    className={`theme-card-option ${theme === "system" ? "active" : ""}`}
-                    onClick={() => setTheme("system")}
-                  >
-                    <div className="theme-icon-circle">
-                      <Settings2 size={18} />
-                    </div>
-                    <span>System Default</span>
-                  </div>
-
-                  <div 
-                    className={`theme-card-option ${theme === "light" ? "active" : ""}`}
-                    onClick={() => setTheme("light")}
-                  >
-                    <div className="theme-icon-circle">
-                      <Sparkle size={18} />
-                    </div>
-                    <span>Light Mode</span>
-                  </div>
-
-                  <div 
-                    className={`theme-card-option ${theme === "dark" ? "active" : ""}`}
-                    onClick={() => setTheme("dark")}
-                  >
-                    <div className="theme-icon-circle">
-                      <BrainCircuit size={18} />
-                    </div>
-                    <span>Dark Mode</span>
+              <form onSubmit={handleChangePassword} className="auth-form" style={{ maxWidth: "480px" }}>
+                <div className="form-group">
+                  <label htmlFor="current-pwd">Current Password</label>
+                  <div className="password-input-wrapper">
+                    <input
+                      id="current-pwd"
+                      type={showCurrentPwd ? "text" : "password"}
+                      placeholder="••••••••"
+                      value={passwordForm.currentPassword}
+                      onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="password-toggle-btn"
+                      onClick={() => setShowCurrentPwd(!showCurrentPwd)}
+                    >
+                      {showCurrentPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
                   </div>
                 </div>
+
+                <div className="form-group">
+                  <label htmlFor="new-pwd">New Password</label>
+                  <div className="password-input-wrapper">
+                    <input
+                      id="new-pwd"
+                      type={showNewPwd ? "text" : "password"}
+                      placeholder="••••••••"
+                      value={passwordForm.newPassword}
+                      onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="password-toggle-btn"
+                      onClick={() => setShowNewPwd(!showNewPwd)}
+                    >
+                      {showNewPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="confirm-pwd">Confirm New Password</label>
+                  <div className="password-input-wrapper">
+                    <input
+                      id="confirm-pwd"
+                      type={showConfirmPwd ? "text" : "password"}
+                      placeholder="••••••••"
+                      value={passwordForm.confirmPassword}
+                      onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="password-toggle-btn"
+                      onClick={() => setShowConfirmPwd(!showConfirmPwd)}
+                    >
+                      {showConfirmPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                {passwordError && <p className="error-message"><ShieldAlert size={14} /> {passwordError}</p>}
+                {passwordSuccess && <p className="success text-sm">{passwordSuccess}</p>}
+
+                <button type="submit" disabled={updatingPassword} className="btn-primary" style={{ maxWidth: "200px" }}>
+                  {updatingPassword ? "Changing..." : "Change Password"}
+                </button>
+              </form>
+            </div>
+          )}
+
+          {activeSubTab === "delete_account" && (
+            <div className="card animate-fade-in" style={{ border: "1px solid rgba(239, 68, 68, 0.2)" }}>
+              <h2 style={{ color: "#ef4444", display: "flex", alignItems: "center", gap: "8px" }}>
+                <ShieldAlert size={20} />
+                <span>Delete Account Permanently</span>
+              </h2>
+              <p className="muted text-sm mb-4">This action is highly destructive and completely irreversible.</p>
+
+              <div style={{ 
+                background: "rgba(239, 68, 68, 0.05)", 
+                borderLeft: "3px solid #ef4444", 
+                padding: "16px", 
+                borderRadius: "var(--radius-sm)", 
+                marginBottom: "24px",
+                fontSize: "14px",
+                lineHeight: "1.6",
+                color: "var(--text-secondary)"
+              }}>
+                Deleting your account will permanently purge all datasets, validation reports, trained models, and history logs from our servers. You will be logged out immediately and your credentials will be deactivated.
               </div>
 
-              <div className="card animate-fade-in">
-                <h2>Security & Password</h2>
-                <p className="muted text-sm mb-4">Update your password regularly to maintain a high level of security.</p>
+              <form onSubmit={handleDeleteAccount} className="auth-form" style={{ maxWidth: "480px" }}>
+                <div className="form-group" style={{ display: "flex", alignItems: "center", gap: "10px", flexDirection: "row" }}>
+                  <input
+                    id="delete-confirm-chk"
+                    type="checkbox"
+                    checked={deleteConfirm}
+                    onChange={(e) => setDeleteConfirm(e.target.checked)}
+                    style={{ width: "20px", height: "20px", cursor: "pointer", flexShrink: 0 }}
+                  />
+                  <label htmlFor="delete-confirm-chk" style={{ cursor: "pointer", fontSize: "13px", color: "var(--text-primary)", fontWeight: "500", margin: 0 }}>
+                    I understand that this action cannot be undone.
+                  </label>
+                </div>
 
-                <form onSubmit={handleChangePassword} className="auth-form" style={{ maxWidth: "480px" }}>
-                  <div className="form-group">
-                    <label htmlFor="current-pwd">Current Password</label>
-                    <div className="password-input-wrapper">
-                      <input
-                        id="current-pwd"
-                        type={showCurrentPwd ? "text" : "password"}
-                        placeholder="••••••••"
-                        value={passwordForm.currentPassword}
-                        onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
-                        required
-                      />
-                      <button
-                        type="button"
-                        className="password-toggle-btn"
-                        onClick={() => setShowCurrentPwd(!showCurrentPwd)}
-                      >
-                        {showCurrentPwd ? <EyeOff size={16} /> : <Eye size={16} />}
-                      </button>
-                    </div>
-                  </div>
+                {deleteError && <p className="error-message"><ShieldAlert size={14} /> {deleteError}</p>}
 
-                  <div className="form-group">
-                    <label htmlFor="new-pwd">New Password</label>
-                    <div className="password-input-wrapper">
-                      <input
-                        id="new-pwd"
-                        type={showNewPwd ? "text" : "password"}
-                        placeholder="••••••••"
-                        value={passwordForm.newPassword}
-                        onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                        required
-                      />
-                      <button
-                        type="button"
-                        className="password-toggle-btn"
-                        onClick={() => setShowNewPwd(!showNewPwd)}
-                      >
-                        {showNewPwd ? <EyeOff size={16} /> : <Eye size={16} />}
-                      </button>
-                    </div>
-                  </div>
+                <button 
+                  type="submit" 
+                  disabled={deletingAccount} 
+                  className="btn-danger" 
+                  style={{ 
+                    maxWidth: "240px", 
+                    backgroundColor: "#ef4444", 
+                    color: "white", 
+                    border: "none", 
+                    padding: "10px 20px", 
+                    borderRadius: "var(--radius-sm)", 
+                    cursor: "pointer",
+                    fontWeight: "600",
+                    transition: "all 0.2s ease"
+                  }}
+                >
+                  {deletingAccount ? "Deleting..." : "Permanently Delete My Account"}
+                </button>
+              </form>
+            </div>
+          )}
 
-                  <div className="form-group">
-                    <label htmlFor="confirm-pwd">Confirm New Password</label>
-                    <div className="password-input-wrapper">
-                      <input
-                        id="confirm-pwd"
-                        type={showConfirmPwd ? "text" : "password"}
-                        placeholder="••••••••"
-                        value={passwordForm.confirmPassword}
-                        onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                        required
-                      />
-                      <button
-                        type="button"
-                        className="password-toggle-btn"
-                        onClick={() => setShowConfirmPwd(!showConfirmPwd)}
-                      >
-                        {showConfirmPwd ? <EyeOff size={16} /> : <Eye size={16} />}
-                      </button>
-                    </div>
-                  </div>
-
-                  {passwordError && <p className="error-message"><ShieldAlert size={14} /> {passwordError}</p>}
-                  {passwordSuccess && <p className="success text-sm">{passwordSuccess}</p>}
-
-                  <button type="submit" disabled={updatingPassword} className="btn-primary" style={{ maxWidth: "200px" }}>
-                    {updatingPassword ? "Changing..." : "Change Password"}
-                  </button>
-                </form>
+          {activeSubTab === "terms" && (
+            <div className="card animate-fade-in">
+              <h2>Terms & Conditions</h2>
+              <p className="muted text-sm mb-4">Project data policies, privacy constraints, and user agreement statements.</p>
+              
+              <div style={{ lineHeight: "1.7", color: "var(--text-secondary)", fontSize: "14px" }}>
+                <p className="mb-4">
+                  The <strong>Data Quality Hub</strong> is provided for educational and data validation purposes. By uploading your datasets, you agree that files will be processed in secure, isolated runtime environments to calculate profiles, data distributions, and quality metrics.
+                </p>
+                <p className="mb-4">
+                  Uploaded data is exclusively accessible by the dataset owner and authorized platform administrators to preserve privacy. Standard users can only view their own uploaded records, validation history, and model statistics.
+                </p>
+                <p>
+                  The platform acts as a validation helper and does not guarantee model performance values; users should verify test results before deployment.
+                </p>
               </div>
-            </>
+            </div>
+          )}
+
+          {activeSubTab === "about" && (
+            <div className="card animate-fade-in">
+              <h2>About the Project</h2>
+              <p className="muted text-sm mb-4">Core capabilities and purpose of the Data Quality Hub.</p>
+              
+              <div style={{ lineHeight: "1.7", color: "var(--text-secondary)", fontSize: "14px" }}>
+                <p>
+                  Data Quality Hub is a comprehensive analytics and machine learning solution designed to automate data profiling, validation, and preprocessing. It checks uploaded datasets for errors, missing cells, outlier values, and datatype inconsistencies, allowing standard users to clean and upscale features. The platform is equipped with modern regression and classification algorithms to train predictive models, validate performance metrics, and export clean, production-ready files instantly.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {activeSubTab === "theme" && (
+            <div className="card animate-fade-in">
+              <h2>App Theme Selection</h2>
+              <p className="muted text-sm mb-4">Select your preferred user interface appearance.</p>
+              
+              <div className="theme-selector-grid">
+                <div 
+                  className={`theme-card-option ${theme === "system" ? "active" : ""}`}
+                  onClick={() => setTheme("system")}
+                >
+                  <div className="theme-icon-circle">
+                    <Settings2 size={18} />
+                  </div>
+                  <span>System Default</span>
+                </div>
+
+                <div 
+                  className={`theme-card-option ${theme === "light" ? "active" : ""}`}
+                  onClick={() => setTheme("light")}
+                >
+                  <div className="theme-icon-circle">
+                    <Sparkle size={18} />
+                  </div>
+                  <span>Light Mode</span>
+                </div>
+
+                <div 
+                  className={`theme-card-option ${theme === "dark" ? "active" : ""}`}
+                  onClick={() => setTheme("dark")}
+                >
+                  <div className="theme-icon-circle">
+                    <BrainCircuit size={18} />
+                  </div>
+                  <span>Dark Mode</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeSubTab === "contact" && (
+            <div className="card animate-fade-in">
+              <h2>Contact Us</h2>
+              <p className="muted text-sm mb-4">Reach out to the system administration team for support and queries.</p>
+              
+              <div style={{ display: "flex", flexDirection: "column", gap: "16px", marginTop: "8px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <div style={{
+                    width: "36px",
+                    height: "36px",
+                    borderRadius: "50%",
+                    backgroundColor: "rgba(99, 102, 241, 0.1)",
+                    border: "1px solid var(--color-secondary)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "var(--color-secondary)"
+                  }}>
+                    <User size={16} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: "700" }}>System Administrator</div>
+                    <div style={{ fontSize: "14px", color: "var(--text-primary)", fontWeight: "600" }}>REVA Admin Console</div>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <div style={{
+                    width: "36px",
+                    height: "36px",
+                    borderRadius: "50%",
+                    backgroundColor: "rgba(6, 182, 212, 0.1)",
+                    border: "1px solid var(--color-cyan)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "var(--color-cyan)"
+                  }}>
+                    <Mail size={16} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: "700" }}>Gmail Address</div>
+                    <div style={{ fontSize: "14px", color: "var(--text-primary)", fontWeight: "600" }}>
+                      <a href="mailto:24130500362@reva.edu.in" style={{ color: "inherit", textDecoration: "none" }}>24130500362@reva.edu.in</a>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <div style={{
+                    width: "36px",
+                    height: "36px",
+                    borderRadius: "50%",
+                    backgroundColor: "rgba(16, 185, 129, 0.1)",
+                    border: "1px solid var(--color-success)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "var(--color-success)"
+                  }}>
+                    <FileText size={16} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: "700" }}>Phone Number</div>
+                    <div style={{ fontSize: "14px", color: "var(--text-primary)", fontWeight: "600" }}>+91 80 4696 6966</div>
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </div>
@@ -2892,6 +3178,18 @@ export default function App() {
 
   async function handlePasswordChange(payload) {
     await changePassword(payload);
+  }
+
+  function handleLogout() {
+    try {
+      sessionStorage.setItem("dq_logged_out", "true");
+    } catch (e) {
+      window._dq_logged_out = true;
+    }
+    clearToken();
+    setAuthenticated(false);
+    setUserProfile(null);
+    setUserSummary(null);
   }
 
   // Handle clicking outside the profile menu to close it
@@ -3401,13 +3699,7 @@ export default function App() {
                         className="profile-dropdown-item logout-item"
                         onClick={() => {
                           setShowProfileMenu(false);
-                          try {
-                            sessionStorage.setItem("dq_logged_out", "true");
-                          } catch (e) {
-                            window._dq_logged_out = true;
-                          }
-                          clearToken();
-                          setAuthenticated(false);
+                          handleLogout();
                         }}
                       >
                         <LogOut size={14} />
@@ -3421,17 +3713,7 @@ export default function App() {
               authenticated && (
                 <button 
                   className="btn-secondary btn-sm"
-                  onClick={() => {
-                    try {
-                      sessionStorage.setItem("dq_logged_out", "true");
-                    } catch (e) {
-                      window._dq_logged_out = true;
-                    }
-                    clearToken();
-                    setAuthenticated(false);
-                    setUserProfile(null);
-                    setUserSummary(null);
-                  }}
+                  onClick={handleLogout}
                   style={{ display: "flex", alignItems: "center", gap: "6px" }}
                 >
                   <LogOut size={12} />
@@ -3532,6 +3814,7 @@ export default function App() {
               onPasswordChange={handlePasswordChange}
               theme={theme}
               setTheme={setTheme}
+              onLogout={handleLogout}
             />
           ) : view === "dataset_detail" ? (
             <Dashboard

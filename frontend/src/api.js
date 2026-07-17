@@ -99,6 +99,12 @@ export function changePassword(payload) {
   });
 }
 
+export function deleteMe() {
+  return request("/api/auth/me", {
+    method: "DELETE",
+  });
+}
+
 export function requestOTP(email, action) {
   return request("/api/auth/forgot-password/request", {
     method: "POST",

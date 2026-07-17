@@ -5,7 +5,8 @@ import random
 
 from ..auth import create_access_token, hash_password, verify_password, get_current_user
 from ..database import get_db, settings
-from ..models import User
+from pathlib import Path
+from ..models import User, Dataset
 from ..schemas import (
     Token,
     UserCreate,
@@ -256,3 +257,31 @@ def verify_otp_reset(payload: OTPResetVerify, db: Session = Depends(get_db)):
     db.commit()
 
     return {"message": "Password reset successfully. You can now sign in."}
+
+
+@router.delete("/me")
+def delete_my_account(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if current_user.email == "24130500362@reva.edu.in":
+        raise HTTPException(status_code=400, detail="Cannot delete the primary admin system account")
+
+    # Delete all datasets associated with the user
+    datasets = db.query(Dataset).filter(Dataset.owner_id == current_user.id).all()
+    for dataset in datasets:
+        try:
+            path = Path(dataset.stored_path)
+            path.unlink(missing_ok=True)
+            clean_path = path.with_name(f"cleaned_{path.name}")
+            clean_path.unlink(missing_ok=True)
+            preprocessed_path = path.with_name(f"preprocessed_{path.name}")
+            preprocessed_path.unlink(missing_ok=True)
+        except Exception:
+            pass
+        db.delete(dataset)
+
+    # Delete the user from the db
+    db.delete(current_user)
+    db.commit()
+    return {"message": "Account deleted successfully"}
