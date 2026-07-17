@@ -3682,8 +3682,8 @@ export default function App() {
                           setShowProfileMenu(false);
                         }}
                       >
-                        <Key size={14} />
-                        <span>Reset Password</span>
+                        <User size={14} />
+                        <span>Profile Settings</span>
                       </button>
                       
                       <div className="profile-dropdown-text-item">
