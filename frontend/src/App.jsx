@@ -2929,7 +2929,7 @@ function UserProfileView({ userProfile, onProfileUpdate, onPasswordChange, theme
                   </div>
                   <div>
                     <div style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: "700" }}>System Administrator</div>
-                    <div style={{ fontSize: "14px", color: "var(--text-primary)", fontWeight: "600" }}>REVA Admin Console</div>
+                    <div style={{ fontSize: "14px", color: "var(--text-primary)", fontWeight: "600" }}>Karava Nandeeswar Reddy</div>
                   </div>
                 </div>
 
@@ -2950,7 +2950,7 @@ function UserProfileView({ userProfile, onProfileUpdate, onPasswordChange, theme
                   <div>
                     <div style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: "700" }}>Gmail Address</div>
                     <div style={{ fontSize: "14px", color: "var(--text-primary)", fontWeight: "600" }}>
-                      <a href="mailto:24130500362@reva.edu.in" style={{ color: "inherit", textDecoration: "none" }}>24130500362@reva.edu.in</a>
+                      <a href="mailto:nandeesh871@gmail.com" style={{ color: "inherit", textDecoration: "none" }}>nandeesh871@gmail.com</a>
                     </div>
                   </div>
                 </div>
@@ -2971,7 +2971,7 @@ function UserProfileView({ userProfile, onProfileUpdate, onPasswordChange, theme
                   </div>
                   <div>
                     <div style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: "700" }}>Phone Number</div>
-                    <div style={{ fontSize: "14px", color: "var(--text-primary)", fontWeight: "600" }}>+91 80 4696 6966</div>
+                    <div style={{ fontSize: "14px", color: "var(--text-primary)", fontWeight: "600" }}>+91 96523 80295</div>
                   </div>
                 </div>
               </div>
