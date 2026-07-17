@@ -1149,17 +1149,26 @@ function DatasetLibrary({
   const [importingId, setImportingId] = useState(null);
   const [hubError, setHubError] = useState("");
 
-  // Load popular templates initially when switching to Discover tab
+  // Auto-search as the user types (with a minimum of 3 characters)
   useEffect(() => {
-    if (activeIngestTab === "discover" && hubResults.length === 0 && !hubQuery) {
-      setHubLoading(true);
-      setHubError("");
-      searchHubDatasets("")
-        .then((res) => setHubResults(res))
-        .catch((err) => setHubError(err.message))
-        .finally(() => setHubLoading(false));
+    if (activeIngestTab === "discover") {
+      const queryTrimmed = hubQuery.trim();
+      if (queryTrimmed.length >= 3) {
+        const delayDebounceFn = setTimeout(() => {
+          handleHubSearch();
+        }, 500); // 500ms debounce to prevent excessive API calls
+        return () => clearTimeout(delayDebounceFn);
+      } else if (queryTrimmed.length === 0) {
+        // Clear results or load popular templates when query is empty
+        setHubLoading(true);
+        setHubError("");
+        searchHubDatasets("")
+          .then((res) => setHubResults(res))
+          .catch((err) => setHubError(err.message))
+          .finally(() => setHubLoading(false));
+      }
     }
-  }, [activeIngestTab]);
+  }, [hubQuery, activeIngestTab]);
 
   const handleHubSearch = async () => {
     setHubLoading(true);
