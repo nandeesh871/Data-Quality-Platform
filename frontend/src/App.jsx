@@ -73,6 +73,7 @@ import {
   verifyOTPReset,
   searchHubDatasets,
   importHubDataset,
+  wakeUpBackend,
 } from "./api";
 
 function AuthScreen({ onAuth }) {
@@ -3258,6 +3259,13 @@ export default function App() {
       localStorage.setItem("dq_theme", theme);
     } catch (e) {}
   }, [theme]);
+
+  // Wake up backend to bypass Render free tier cold-start
+  useEffect(() => {
+    if (!authenticated) {
+      wakeUpBackend();
+    }
+  }, [authenticated]);
 
   const [pipelineProgress, setPipelineProgress] = useState({
     active: false,

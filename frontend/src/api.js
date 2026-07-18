@@ -244,5 +244,9 @@ export function importHubDataset(datasetDetails) {
   });
 }
 
+export function wakeUpBackend() {
+  return request("/").catch(() => {});
+}
+
 
 

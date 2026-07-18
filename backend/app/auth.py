@@ -14,7 +14,7 @@ from .models import User
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 ALGORITHM = "HS256"
 HASH_NAME = "sha256"
-ITERATIONS = 260000
+ITERATIONS = 30000
 SALT_BYTES = 16
 
 
