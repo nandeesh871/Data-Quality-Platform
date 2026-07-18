@@ -4,6 +4,7 @@ import random
 import zipfile
 import shutil
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 import requests
 from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -60,25 +61,36 @@ POPULAR_TEMPLATES = [
     }
 ]
 
+def get_hf_csv_path(ds_id: str) -> str | None:
+    try:
+        url = f"https://huggingface.co/api/datasets/{ds_id}/tree/main"
+        resp = requests.get(url, timeout=3)
+        if resp.status_code == 200:
+            files = resp.json()
+            for f in files:
+                path = f.get("path", "")
+                if path.endswith(".csv"):
+                    return path
+    except Exception:
+        pass
+    return None
+
 def search_huggingface(query: str) -> list[dict]:
     results = []
     try:
         url = "https://huggingface.co/api/datasets"
-        resp = requests.get(url, params={"search": query, "limit": 25}, timeout=5)
+        resp = requests.get(url, params={"search": query, "limit": 15}, timeout=5)
         if resp.status_code == 200:
             data = resp.json()
-            for item in data:
-                ds_id = item.get("id", "")
-                csv_file = None
-                siblings = item.get("siblings", [])
-                for sib in siblings:
-                    rpath = sib.get("rpath", "")
-                    if rpath.endswith(".csv"):
-                        csv_file = rpath
-                        break
-                
-                if csv_file:
-                    download_url = f"https://huggingface.co/datasets/{ds_id}/resolve/main/{csv_file}"
+            ds_ids = [item.get("id", "") for item in data if item.get("id")]
+            
+            with ThreadPoolExecutor(max_workers=5) as executor:
+                csv_paths = list(executor.map(get_hf_csv_path, ds_ids))
+            
+            for item, csv_path in zip(data, csv_paths):
+                if csv_path:
+                    ds_id = item.get("id")
+                    download_url = f"https://huggingface.co/datasets/{ds_id}/resolve/main/{csv_path}"
                     desc = item.get("description", "")
                     if not desc:
                         desc = f"Hugging Face dataset by {item.get('author', 'unknown')}. Downloads: {item.get('downloads', 0)}."
@@ -100,36 +112,39 @@ def search_huggingface(query: str) -> list[dict]:
 def search_kaggle(query: str) -> list[dict]:
     results = []
     try:
-        # Check if Kaggle credentials are set up
-        # Standard location for kaggle credentials is in ~/.kaggle/kaggle.json or env variables
-        if not os.environ.get("KAGGLE_USERNAME") and not os.path.exists(os.path.expanduser("~/.kaggle/kaggle.json")):
-            # Fallback to backend/.env check
-            # Pydantic settings doesn't automatically export class fields as OS environment variables, 
-            # so we export them manually for the kaggle library
-            if settings.secret_key:  # Check if settings are loaded
-                # We can check if kaggle credentials are set in Settings
-                # (we will add them if they are configured)
-                pass
-        
-        from kaggle.api.kaggle_api_extended import KaggleApi
-        api = KaggleApi()
-        api.authenticate()
-        
-        datasets = api.dataset_list(search=query)
-        for ds in datasets:
-            ref = str(ds.ref)
-            results.append({
-                "id": ref,
-                "name": str(ds.title),
-                "fullName": ref,
-                "description": f"Kaggle dataset by {ref.split('/')[0]}. Downloads: {ds.downloadCount}. Size: {ds.size}.",
-                "size": str(ds.size),
-                "download_url": ref,
-                "source": "kaggle",
-                "isTemplate": False
-            })
+        # Query Kaggle's public web search API (no credentials needed)
+        url = "https://www.kaggle.com/api/v1/datasets/list"
+        resp = requests.get(url, params={"search": query}, timeout=5)
+        if resp.status_code == 200:
+            data = resp.json()
+            for ds in data:
+                ref = ds.get("ref", "")
+                title = ds.get("title", "").strip()
+                subtitle = ds.get("subtitle", "")
+                size_bytes = ds.get("totalBytes", 0)
+                
+                # Convert bytes to human readable size
+                if size_bytes < 1024:
+                    size_str = f"{size_bytes} B"
+                elif size_bytes < 1024 * 1024:
+                    size_str = f"{size_bytes / 1024:.1f} KB"
+                else:
+                    size_str = f"{size_bytes / (1024 * 1024):.1f} MB"
+                
+                desc = subtitle if subtitle else f"Kaggle dataset by {ref.split('/')[0]}. Downloads: {ds.get('downloadCount', 0)}."
+                
+                results.append({
+                    "id": ref,
+                    "name": title,
+                    "fullName": ref,
+                    "description": desc[:250] + "..." if len(desc) > 250 else desc,
+                    "size": size_str,
+                    "download_url": ref,
+                    "source": "kaggle",
+                    "isTemplate": False
+                })
     except Exception as e:
-        print(f"Kaggle search error (requires kaggle.json): {e}")
+        print(f"Kaggle public search error: {e}")
     return results
 
 @router.get("/search")
@@ -218,6 +233,12 @@ def import_dataset(
             raise HTTPException(status_code=500, detail=f"Hugging Face import failed: {str(e)}")
 
     elif source == "kaggle":
+        # Check Kaggle Credentials first
+        if not os.environ.get("KAGGLE_USERNAME") and not os.path.exists(os.path.expanduser("~/.kaggle/kaggle.json")):
+            raise HTTPException(
+                status_code=400,
+                detail="Kaggle API credentials are not configured on this server. To import Kaggle datasets, please set KAGGLE_USERNAME and KAGGLE_KEY environment variables in your Render backend settings."
+            )
         try:
             from kaggle.api.kaggle_api_extended import KaggleApi
             api = KaggleApi()
