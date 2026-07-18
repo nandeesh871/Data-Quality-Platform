@@ -147,6 +147,34 @@ def search_kaggle(query: str) -> list[dict]:
         print(f"Kaggle public search error: {e}")
     return results
 
+@router.get("/debug-search")
+def debug_search(q: str = ""):
+    hf_status = None
+    hf_preview = ""
+    kaggle_status = None
+    kaggle_preview = ""
+    
+    try:
+        url = "https://huggingface.co/api/datasets"
+        resp = requests.get(url, params={"search": q, "limit": 5}, timeout=5)
+        hf_status = resp.status_code
+        hf_preview = resp.text[:400]
+    except Exception as e:
+        hf_preview = f"Error: {e}"
+
+    try:
+        url = "https://www.kaggle.com/api/v1/datasets/list"
+        resp = requests.get(url, params={"search": q}, timeout=5)
+        kaggle_status = resp.status_code
+        kaggle_preview = resp.text[:400]
+    except Exception as e:
+        kaggle_preview = f"Error: {e}"
+
+    return {
+        "huggingface": {"status": hf_status, "preview": hf_preview},
+        "kaggle": {"status": kaggle_status, "preview": kaggle_preview}
+    }
+
 @router.get("/search")
 def search_datasets(q: str = ""):
     if not q:
