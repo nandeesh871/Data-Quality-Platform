@@ -314,6 +314,7 @@ def import_dataset(
             try:
                 df = read_dataset(file_path)
                 analysis = analyze_dataframe(df, file_path=file_path)
+                analysis["download_url"] = download_url
                 rows_count = analysis["rows_count"]
                 columns_count = analysis["columns_count"]
                 quality_score = analysis["quality_score"]
@@ -410,6 +411,7 @@ def import_dataset(
             try:
                 df = read_dataset(file_path)
                 analysis = analyze_dataframe(df, file_path=file_path)
+                analysis["kaggle_fullname"] = full_name
                 rows_count = analysis["rows_count"]
                 columns_count = analysis["columns_count"]
                 quality_score = analysis["quality_score"]

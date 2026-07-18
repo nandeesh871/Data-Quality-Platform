@@ -225,7 +225,8 @@ export async function downloadDataset(id, format, filename = "dataset", version 
   const url = window.URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `export_${filename.replace(/\.[^/.]+$/, "")}.${format}`;
+  const ext = format === "excel" ? "xlsx" : format;
+  link.download = `export_${filename.replace(/\.[^/.]+$/, "")}.${ext}`;
   document.body.appendChild(link);
   link.click();
   link.remove();

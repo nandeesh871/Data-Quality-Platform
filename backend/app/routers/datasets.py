@@ -55,6 +55,87 @@ def get_original_path(stored_path: str) -> str:
     return stored_path
 
 
+def ensure_dataset_file_exists(dataset: Dataset, db: Session) -> bool:
+    import os
+    if os.path.exists(dataset.stored_path):
+        return True
+
+    if not dataset.analysis_json:
+        return False
+
+    try:
+        import requests
+        from ..quality import json_loads, json_dumps, read_dataset, analyze_dataframe
+        analysis = json_loads(dataset.analysis_json)
+        source = dataset.source
+        
+        # Ensure upload folder exists
+        os.makedirs(os.path.dirname(dataset.stored_path), exist_ok=True)
+
+        if source in ["huggingface", "datagov", "datahub"]:
+            download_url = analysis.get("download_url")
+            if not download_url:
+                return False
+
+            print(f"Self-healing: Restoring file {dataset.filename} from {download_url}...")
+            headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+            resp = requests.get(download_url, headers=headers, stream=True, timeout=45)
+            if resp.status_code == 200:
+                with open(dataset.stored_path, "wb") as f:
+                    for chunk in resp.iter_content(chunk_size=16384):
+                        f.write(chunk)
+                print(f"File {dataset.filename} restored successfully!")
+                return True
+
+        elif source == "kaggle":
+            full_name = analysis.get("kaggle_fullname")
+            if not full_name:
+                return False
+
+            username = os.environ.get("KAGGLE_USERNAME")
+            key = os.environ.get("KAGGLE_KEY")
+            if not username or not key:
+                if not os.path.exists(os.path.expanduser("~/.kaggle/kaggle.json")):
+                    return False
+            else:
+                home = os.path.expanduser("~")
+                kaggle_dir = os.path.join(home, ".kaggle")
+                os.makedirs(kaggle_dir, exist_ok=True)
+                kjson = os.path.join(kaggle_dir, "kaggle.json")
+                import json
+                with open(kjson, "w") as f:
+                    json.dump({"username": username, "key": key}, f)
+                os.chmod(kjson, 0o600)
+
+            print(f"Self-healing: Restoring Kaggle file {dataset.filename} for {full_name}...")
+            from kaggle.api.kaggle_api_extended import KaggleApi
+            api = KaggleApi()
+            api.authenticate()
+
+            import tempfile, shutil
+            with tempfile.TemporaryDirectory() as tmpdir:
+                api.dataset_download_files(full_name, path=tmpdir, unzip=True)
+                
+                csv_file = None
+                for root, _, files in os.walk(tmpdir):
+                    for file in files:
+                        if file.endswith(".csv"):
+                            csv_file = os.path.join(root, file)
+                            break
+                    if csv_file:
+                        break
+
+                if csv_file:
+                    shutil.copy(csv_file, dataset.stored_path)
+                    print(f"Kaggle file {dataset.filename} restored successfully!")
+                    return True
+
+    except Exception as e:
+        print(f"Failed to self-heal dataset file: {e}")
+    
+    return False
+
+
 def prepare_dataset_out(d: Dataset) -> DatasetOut:
     out = DatasetOut.model_validate(d)
     out.owner_name = d.owner.name if d.owner else "System"
@@ -322,14 +403,12 @@ def preprocess_dataset_route(
     db: Session = Depends(get_db),
 ):
     dataset = get_dataset_or_404(dataset_id, user, db)
-    original_path = get_original_path(dataset.stored_path)
-    
-    import os
-    if not os.path.exists(original_path):
+    if not ensure_dataset_file_exists(dataset, db):
         raise HTTPException(
             status_code=400,
             detail="Dataset file not found on the server. Due to Render's free tier ephemeral disk, uploaded files are deleted when the server restarts. Please re-upload the CSV dataset to run this action."
         )
+    original_path = get_original_path(dataset.stored_path)
     clean_path = Path(original_path).with_name(f"cleaned_{Path(original_path).name}")
     
     # If it was cleaned previously, build preprocessing on the cleaned file. Otherwise, build on the original.
@@ -399,9 +478,7 @@ def train_dataset_route(
     db: Session = Depends(get_db),
 ):
     dataset = get_dataset_or_404(dataset_id, user, db)
-    
-    import os
-    if not os.path.exists(dataset.stored_path):
+    if not ensure_dataset_file_exists(dataset, db):
         raise HTTPException(
             status_code=400,
             detail="Dataset file not found on the server. Due to Render's free tier ephemeral disk, uploaded files are deleted when the server restarts. Please re-upload the CSV dataset to run this action."
@@ -456,11 +533,14 @@ def export_dataset(
     db: Session = Depends(get_db),
 ):
     dataset = get_dataset_or_404(dataset_id, user, db)
+    if not ensure_dataset_file_exists(dataset, db):
+        raise HTTPException(
+            status_code=404,
+            detail="Original raw dataset not found on disk. Due to Render's free tier ephemeral disk, files are deleted on container restart. Please re-import or re-upload the dataset to restore it."
+        )
     
     if version == "raw":
         path = Path(get_original_path(dataset.stored_path))
-        if not path.exists():
-            raise HTTPException(status_code=404, detail="Original raw dataset not found on disk")
     elif version == "processed":
         if dataset.status == "analyzed":
             raise HTTPException(
