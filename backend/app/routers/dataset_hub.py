@@ -238,6 +238,32 @@ def search_datahub(query: str) -> list[dict]:
         print(f"Datahub search error: {e}")
     return results
 
+@router.get("/check-credentials")
+def check_credentials():
+    import os
+    username = os.environ.get("KAGGLE_USERNAME")
+    key = os.environ.get("KAGGLE_KEY")
+    home = os.path.expanduser("~")
+    json_path = os.path.join(home, ".kaggle", "kaggle.json")
+    json_exists = os.path.exists(json_path)
+    
+    return {
+        "KAGGLE_USERNAME": {
+            "is_set": username is not None,
+            "length": len(username) if username else 0,
+            "preview": username[:3] + "..." if username else ""
+        },
+        "KAGGLE_KEY": {
+            "is_set": key is not None,
+            "length": len(key) if key else 0,
+            "preview": key[:3] + "..." if key else ""
+        },
+        "kaggle_json": {
+            "exists": json_exists,
+            "size": os.path.getsize(json_path) if json_exists else 0
+        }
+    }
+
 @router.get("/search")
 def search_datasets(q: str = ""):
     if not q:
