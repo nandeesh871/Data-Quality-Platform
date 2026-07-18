@@ -219,9 +219,29 @@ def get_analysis(
     db: Session = Depends(get_db),
 ):
     dataset = get_dataset_or_404(dataset_id, user, db)
+    analysis = None
+    if dataset.analysis_json:
+        analysis = json_loads(dataset.analysis_json)
+    else:
+        # Lazy analysis recovery if file exists
+        import os
+        if os.path.exists(dataset.stored_path):
+            try:
+                df = read_dataset(dataset.stored_path)
+                analysis = analyze_dataframe(df)
+                dataset.analysis_json = json_dumps(analysis)
+                dataset.rows_count = analysis["rows_count"]
+                dataset.columns_count = analysis["columns_count"]
+                dataset.quality_score = analysis["quality_score"]
+                dataset.status = "analyzed"
+                db.commit()
+                db.refresh(dataset)
+            except Exception as e:
+                print(f"Lazy profiling failed: {e}")
+
     return {
         "dataset": prepare_dataset_out(dataset),
-        "analysis": json_loads(dataset.analysis_json) if dataset.analysis_json else {},
+        "analysis": analysis if analysis else {},
         "lineage_logs": prepare_lineage_logs(get_visible_lineage_logs(dataset, user))
     }
 
