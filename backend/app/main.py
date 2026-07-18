@@ -60,9 +60,9 @@ app.add_middleware(
 )
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
+app.include_router(dataset_hub.router, prefix="/api/datasets/hub", tags=["Dataset Hub"])
 app.include_router(datasets.router, prefix="/api/datasets", tags=["Datasets"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
-app.include_router(dataset_hub.router, prefix="/api/datasets/hub", tags=["Dataset Hub"])
 
 
 @app.get("/")
