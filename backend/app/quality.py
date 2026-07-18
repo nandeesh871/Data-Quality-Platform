@@ -16,21 +16,56 @@ except ImportError:
 
 
 def read_dataset(path: str | Path) -> pd.DataFrame:
+    # Safely sample large files to protect Render containers from RAM OOM
+    import os
+    try:
+        file_size = os.path.getsize(path)
+        if file_size > 8 * 1024 * 1024:  # > 8MB
+            # Load first 100,000 rows as sample representation
+            return pd.read_csv(path, nrows=100000)
+    except Exception:
+        pass
     return pd.read_csv(path)
 
 
-def analyze_dataframe(df: pd.DataFrame) -> dict[str, Any]:
+def get_exact_row_count(path: str | Path) -> int:
+    try:
+        with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+            return sum(1 for _ in f) - 1
+    except Exception:
+        return 0
+
+
+def analyze_dataframe(df: pd.DataFrame, file_path: str | Path | None = None) -> dict[str, Any]:
     rows_count = len(df)
+    
+    # Get exact line count if path is available
+    exact_rows = None
+    if file_path:
+        exact_rows = get_exact_row_count(file_path)
+        if exact_rows > rows_count:
+            rows_count = exact_rows
+
     columns_count = len(df.columns)
     total_cells = max(rows_count * columns_count, 1)
+    
     missing_by_column = df.isna().sum().to_dict()
     missing_total = int(sum(missing_by_column.values()))
     duplicate_count = int(df.duplicated().sum())
+
+    # Proportional scaling for sampled data
+    if exact_rows and exact_rows > len(df):
+        scale_factor = exact_rows / len(df)
+        missing_total = int(missing_total * scale_factor)
+        duplicate_count = int(duplicate_count * scale_factor)
+        for col in missing_by_column:
+            missing_by_column[col] = int(missing_by_column[col] * scale_factor)
+
     data_types = {column: str(dtype) for column, dtype in df.dtypes.items()}
 
     invalid_columns = []
     for column in df.columns:
-        missing_ratio = float(df[column].isna().mean()) if rows_count else 0
+        missing_ratio = float(df[column].isna().mean()) if len(df) else 0
         if missing_ratio > 0.5:
             invalid_columns.append(
                 {

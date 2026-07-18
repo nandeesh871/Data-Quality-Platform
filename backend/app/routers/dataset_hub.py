@@ -268,16 +268,9 @@ def import_dataset(
         try:
             # 1. Download file via HTTP
             headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
-            resp = requests.get(download_url, headers=headers, stream=True, timeout=30)
+            resp = requests.get(download_url, headers=headers, stream=True, timeout=45)
             if resp.status_code != 200:
                 raise Exception(f"Failed to fetch file. HTTP {resp.status_code}")
-
-            # Check size if Content-Length is present
-            content_length = resp.headers.get('Content-Length')
-            if content_length:
-                size_mb = int(content_length) / (1024 * 1024)
-                if size_mb > 15.0:
-                    raise Exception(f"Dataset is too large ({size_mb:.1f} MB) for the Render Free Tier server RAM. Please download it locally and upload a subset CSV.")
 
             clean_name = dataset_name.replace("/", "_")
             if not clean_name.endswith(".csv"):
@@ -286,20 +279,15 @@ def import_dataset(
             stored_name = f"{int(time.time())}_{clean_name}"
             file_path = os.path.join(settings.upload_dir, stored_name)
 
-            # Limit total downloaded content to 20MB to prevent OOM
-            downloaded = 0
             with open(file_path, "wb") as f:
-                for chunk in resp.iter_content(chunk_size=8192):
-                    downloaded += len(chunk)
-                    if downloaded > 20 * 1024 * 1024:
-                        raise Exception("Dataset exceeded the maximum download safety limit (20MB) for free tier RAM.")
+                for chunk in resp.iter_content(chunk_size=16384):
                     f.write(chunk)
 
             # 2. Get CSV rows/cols metadata and run profiler
             from app.quality import analyze_dataframe, read_dataset, json_dumps
             try:
                 df = read_dataset(file_path)
-                analysis = analyze_dataframe(df)
+                analysis = analyze_dataframe(df, file_path=file_path)
                 rows_count = analysis["rows_count"]
                 columns_count = analysis["columns_count"]
                 quality_score = analysis["quality_score"]
@@ -343,11 +331,29 @@ def import_dataset(
             raise HTTPException(status_code=500, detail=f"{source} import failed: {str(e)}")
 
     elif source == "kaggle":
-        if not os.environ.get("KAGGLE_USERNAME") and not os.path.exists(os.path.expanduser("~/.kaggle/kaggle.json")):
-            raise HTTPException(
-                status_code=400,
-                detail="Kaggle API credentials are not configured on this server. To import Kaggle datasets, please set KAGGLE_USERNAME and KAGGLE_KEY environment variables in your Render backend settings."
-            )
+        username = os.environ.get("KAGGLE_USERNAME")
+        key = os.environ.get("KAGGLE_KEY")
+        
+        if not username or not key:
+            if not os.path.exists(os.path.expanduser("~/.kaggle/kaggle.json")):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Kaggle API credentials are not configured on this server. To import Kaggle datasets, please set KAGGLE_USERNAME and KAGGLE_KEY environment variables in your Render backend settings."
+                )
+        else:
+            try:
+                home = os.path.expanduser("~")
+                kaggle_dir = os.path.join(home, ".kaggle")
+                os.makedirs(kaggle_dir, exist_ok=True)
+                kaggle_json_path = os.path.join(kaggle_dir, "kaggle.json")
+                
+                import json
+                with open(kaggle_json_path, "w") as f:
+                    json.dump({"username": username, "key": key}, f)
+                os.chmod(kaggle_json_path, 0o600)
+            except Exception as e:
+                print(f"Failed to write kaggle.json: {e}")
+
         try:
             from kaggle.api.kaggle_api_extended import KaggleApi
             api = KaggleApi()
@@ -377,7 +383,7 @@ def import_dataset(
             from app.quality import analyze_dataframe, read_dataset, json_dumps
             try:
                 df = read_dataset(file_path)
-                analysis = analyze_dataframe(df)
+                analysis = analyze_dataframe(df, file_path=file_path)
                 rows_count = analysis["rows_count"]
                 columns_count = analysis["columns_count"]
                 quality_score = analysis["quality_score"]
