@@ -1820,12 +1820,12 @@ function Dashboard({
     ];
   }, [analysis]);
 
-  if (!analysis) {
+  if (!analysis || typeof analysis.rows_count === 'undefined' || typeof analysis.columns_count === 'undefined' || !analysis.data_types) {
     return (
       <section className="card empty-state text-center">
         <FileSpreadsheet size={48} className="text-primary animate-bounce" />
-        <h2>Analyze & Transform Your Data</h2>
-        <p>Select a dataset from the library or upload a new CSV file to explore features, quality metrics, clean missing values, and run machine learning models.</p>
+        <h2>Data Profiling Unavailable</h2>
+        <p>This dataset does not contain valid profiling data, or the file is still importing/downloading. Please refresh in a moment or verify the dataset CSV format.</p>
         <button className="btn-primary" onClick={onBackToLibrary} style={{ maxWidth: "200px", margin: "16px auto 0" }}>
           Go to Library Store
         </button>

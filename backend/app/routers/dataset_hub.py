@@ -267,9 +267,17 @@ def import_dataset(
     if source in ["huggingface", "datagov", "datahub"]:
         try:
             # 1. Download file via HTTP
-            resp = requests.get(download_url, stream=True, timeout=30)
+            headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+            resp = requests.get(download_url, headers=headers, stream=True, timeout=30)
             if resp.status_code != 200:
                 raise Exception(f"Failed to fetch file. HTTP {resp.status_code}")
+
+            # Check size if Content-Length is present
+            content_length = resp.headers.get('Content-Length')
+            if content_length:
+                size_mb = int(content_length) / (1024 * 1024)
+                if size_mb > 15.0:
+                    raise Exception(f"Dataset is too large ({size_mb:.1f} MB) for the Render Free Tier server RAM. Please download it locally and upload a subset CSV.")
 
             clean_name = dataset_name.replace("/", "_")
             if not clean_name.endswith(".csv"):
@@ -278,8 +286,13 @@ def import_dataset(
             stored_name = f"{int(time.time())}_{clean_name}"
             file_path = os.path.join(settings.upload_dir, stored_name)
 
+            # Limit total downloaded content to 20MB to prevent OOM
+            downloaded = 0
             with open(file_path, "wb") as f:
                 for chunk in resp.iter_content(chunk_size=8192):
+                    downloaded += len(chunk)
+                    if downloaded > 20 * 1024 * 1024:
+                        raise Exception("Dataset exceeded the maximum download safety limit (20MB) for free tier RAM.")
                     f.write(chunk)
 
             # 2. Get CSV rows/cols metadata and run profiler
