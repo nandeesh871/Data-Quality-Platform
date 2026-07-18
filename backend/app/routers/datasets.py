@@ -221,7 +221,7 @@ def get_analysis(
     dataset = get_dataset_or_404(dataset_id, user, db)
     return {
         "dataset": prepare_dataset_out(dataset),
-        "analysis": json_loads(dataset.analysis_json),
+        "analysis": json_loads(dataset.analysis_json) if dataset.analysis_json else {},
         "lineage_logs": prepare_lineage_logs(get_visible_lineage_logs(dataset, user))
     }
 

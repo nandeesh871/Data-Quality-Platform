@@ -1150,6 +1150,20 @@ function DatasetLibrary({
   const [importingId, setImportingId] = useState(null);
   const [hubError, setHubError] = useState("");
 
+  const getSourceBadgeStyle = (source) => {
+    if (source === "kaggle") {
+      return { text: "Kaggle", bg: "rgba(6, 182, 212, 0.15)", fg: "var(--color-cyan)" };
+    } else if (source === "huggingface") {
+      return { text: "Hugging Face", bg: "rgba(234, 179, 8, 0.15)", fg: "var(--color-warning)" };
+    } else if (source === "datagov") {
+      return { text: "Data.gov", bg: "rgba(239, 68, 68, 0.15)", fg: "var(--color-danger)" };
+    } else if (source === "datahub") {
+      return { text: "Datahub.io", bg: "rgba(16, 185, 129, 0.15)", fg: "var(--color-success)" };
+    } else {
+      return { text: "Upload", bg: "rgba(139, 92, 246, 0.15)", fg: "var(--color-secondary)" };
+    }
+  };
+
   // Auto-search as the user types (with a minimum of 3 characters)
   useEffect(() => {
     if (activeIngestTab === "discover") {
@@ -1329,11 +1343,11 @@ function DatasetLibrary({
                               borderRadius: "4px", 
                               fontWeight: "bold", 
                               textTransform: "uppercase",
-                              backgroundColor: result.source === "kaggle" ? "rgba(6, 182, 212, 0.15)" : "rgba(234, 179, 8, 0.15)", 
-                              color: result.source === "kaggle" ? "var(--color-cyan)" : "var(--color-warning)" 
+                              backgroundColor: getSourceBadgeStyle(result.source).bg,
+                              color: getSourceBadgeStyle(result.source).fg
                             }}
                           >
-                            {result.source === "kaggle" ? "Kaggle" : "Hugging Face"}
+                            {getSourceBadgeStyle(result.source).text}
                           </span>
                           <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>{result.size}</span>
                         </div>
@@ -1416,11 +1430,11 @@ function DatasetLibrary({
                       borderRadius: "4px",
                       fontWeight: "bold",
                       textTransform: "uppercase",
-                      backgroundColor: dataset.source === "kaggle" ? "rgba(6, 182, 212, 0.15)" : dataset.source === "huggingface" ? "rgba(234, 179, 8, 0.15)" : "rgba(139, 92, 246, 0.15)",
-                      color: dataset.source === "kaggle" ? "var(--color-cyan)" : dataset.source === "huggingface" ? "var(--color-warning)" : "var(--color-secondary)"
+                      backgroundColor: getSourceBadgeStyle(dataset.source).bg,
+                      color: getSourceBadgeStyle(dataset.source).fg
                     }}
                   >
-                    {dataset.source === "kaggle" ? "Kaggle" : dataset.source === "huggingface" ? "Hugging Face" : "Upload"}
+                    {getSourceBadgeStyle(dataset.source).text}
                   </span>
                 </div>
                 <p>{dataset.rows_count.toLocaleString()} rows × {dataset.columns_count} columns</p>

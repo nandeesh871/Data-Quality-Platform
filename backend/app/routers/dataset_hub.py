@@ -26,7 +26,7 @@ POPULAR_TEMPLATES = [
         "description": "The classic dataset for binary classification. Predict survival (passenger attributes like class, age, gender).",
         "size": "60 KB",
         "download_url": "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv",
-        "source": "huggingface",  # We can pull directly via raw URL
+        "source": "huggingface",
         "isTemplate": True
     },
     {
@@ -61,6 +61,7 @@ POPULAR_TEMPLATES = [
     }
 ]
 
+# Helper to scan a single HF dataset tree in parallel
 def get_hf_csv_path(ds_id: str) -> str | None:
     try:
         url = f"https://huggingface.co/api/datasets/{ds_id}/tree/main"
@@ -79,7 +80,7 @@ def search_huggingface(query: str) -> list[dict]:
     results = []
     try:
         url = "https://huggingface.co/api/datasets"
-        resp = requests.get(url, params={"search": query, "limit": 15}, timeout=5)
+        resp = requests.get(url, params={"search": query, "limit": 10}, timeout=5)
         if resp.status_code == 200:
             data = resp.json()
             ds_ids = [item.get("id", "") for item in data if item.get("id")]
@@ -112,7 +113,6 @@ def search_huggingface(query: str) -> list[dict]:
 def search_kaggle(query: str) -> list[dict]:
     results = []
     try:
-        # Query Kaggle's public web search API (no credentials needed)
         url = "https://www.kaggle.com/api/v1/datasets/list"
         resp = requests.get(url, params={"search": query}, timeout=5)
         if resp.status_code == 200:
@@ -123,7 +123,6 @@ def search_kaggle(query: str) -> list[dict]:
                 subtitle = ds.get("subtitle", "")
                 size_bytes = ds.get("totalBytes", 0)
                 
-                # Convert bytes to human readable size
                 if size_bytes < 1024:
                     size_str = f"{size_bytes} B"
                 elif size_bytes < 1024 * 1024:
@@ -147,17 +146,109 @@ def search_kaggle(query: str) -> list[dict]:
         print(f"Kaggle public search error: {e}")
     return results
 
+def search_datagov(query: str) -> list[dict]:
+    results = []
+    try:
+        url = "https://api.gsa.gov/technology/datagov/v3/action/package_search"
+        resp = requests.get(url, params={"q": query, "api_key": "DEMO_KEY", "rows": 8}, timeout=5)
+        if resp.status_code == 200:
+            data = resp.json()
+            packages = data.get("result", {}).get("results", [])
+            for pkg in packages:
+                title = pkg.get("title", "").strip()
+                notes = pkg.get("notes", "") or ""
+                resources = pkg.get("resources", [])
+                
+                csv_url = None
+                for res in resources:
+                    res_url = res.get("url", "")
+                    res_format = res.get("format", "").lower()
+                    if res_format == "csv" or res_url.lower().endswith(".csv"):
+                        csv_url = res_url
+                        break
+                
+                if csv_url:
+                    results.append({
+                        "id": pkg.get("id", ""),
+                        "name": title,
+                        "fullName": title,
+                        "description": notes[:250] + "..." if len(notes) > 250 else notes,
+                        "size": "U.S. Data.gov Portal",
+                        "download_url": csv_url,
+                        "source": "datagov",
+                        "isTemplate": False
+                    })
+    except Exception as e:
+        print(f"Data.gov search error: {e}")
+    return results
+
+# Helper to scan a single Datahub repo contents in parallel
+def get_datahub_csv_url(repo_name: str) -> str | None:
+    try:
+        url = f"https://api.github.com/repos/datasets/{repo_name}/contents/data"
+        resp = requests.get(url, timeout=3)
+        if resp.status_code == 200:
+            files = resp.json()
+            for f in files:
+                name = f.get("name", "")
+                if name.endswith(".csv"):
+                    return f.get("download_url")
+        
+        # Check root
+        url = f"https://api.github.com/repos/datasets/{repo_name}/contents"
+        resp = requests.get(url, timeout=3)
+        if resp.status_code == 200:
+            files = resp.json()
+            for f in files:
+                name = f.get("name", "")
+                if name.endswith(".csv"):
+                    return f.get("download_url")
+    except Exception:
+        pass
+    return None
+
+def search_datahub(query: str) -> list[dict]:
+    results = []
+    try:
+        url = "https://api.github.com/search/repositories"
+        resp = requests.get(url, params={"q": f"org:datasets {query}"}, timeout=5)
+        if resp.status_code == 200:
+            data = resp.json()
+            items = data.get("items", [])[:8]
+            repo_names = [item.get("name", "") for item in items if item.get("name")]
+            
+            with ThreadPoolExecutor(max_workers=5) as executor:
+                csv_urls = list(executor.map(get_datahub_csv_url, repo_names))
+            
+            for item, csv_url in zip(items, csv_urls):
+                if csv_url:
+                    name = item.get("name", "")
+                    desc = item.get("description", "") or f"Curated dataset from Datahub.io catalog: {name}."
+                    results.append({
+                        "id": name,
+                        "name": name.replace("-", " ").title(),
+                        "fullName": f"datasets/{name}",
+                        "description": desc[:250] + "..." if len(desc) > 250 else desc,
+                        "size": "Datahub.io Catalog",
+                        "download_url": csv_url,
+                        "source": "datahub",
+                        "isTemplate": False
+                    })
+    except Exception as e:
+        print(f"Datahub search error: {e}")
+    return results
+
 @router.get("/search")
 def search_datasets(q: str = ""):
     if not q:
-        # Return popular templates if query is empty
         return POPULAR_TEMPLATES
 
     hf_results = search_huggingface(q)
     kaggle_results = search_kaggle(q)
+    datagov_results = search_datagov(q)
+    datahub_results = search_datahub(q)
     
-    # Merge results
-    return hf_results + kaggle_results
+    return hf_results + kaggle_results + datagov_results + datahub_results
 
 @router.post("/import", response_model=DatasetOut)
 def import_dataset(
@@ -173,14 +264,13 @@ def import_dataset(
     if not source or not download_url or not full_name:
         raise HTTPException(status_code=400, detail="Missing required payload parameters")
 
-    if source == "huggingface":
+    if source in ["huggingface", "datagov", "datahub"]:
         try:
             # 1. Download file via HTTP
             resp = requests.get(download_url, stream=True, timeout=30)
             if resp.status_code != 200:
                 raise Exception(f"Failed to fetch file. HTTP {resp.status_code}")
 
-            # Define clean file name
             clean_name = dataset_name.replace("/", "_")
             if not clean_name.endswith(".csv"):
                 clean_name += ".csv"
@@ -192,26 +282,33 @@ def import_dataset(
                 for chunk in resp.iter_content(chunk_size=8192):
                     f.write(chunk)
 
-            # 2. Get CSV rows/cols metadata
-            rows_count = 0
-            cols_count = 0
+            # 2. Get CSV rows/cols metadata and run profiler
+            from app.quality import analyze_dataframe, read_dataset, json_dumps
             try:
-                import pandas as pd
-                df = pd.read_csv(file_path)
-                rows_count = len(df)
-                cols_count = len(df.columns)
-            except Exception:
-                pass
+                df = read_dataset(file_path)
+                analysis = analyze_dataframe(df)
+                rows_count = analysis["rows_count"]
+                columns_count = analysis["columns_count"]
+                quality_score = analysis["quality_score"]
+                analysis_json = json_dumps(analysis)
+                status = "analyzed"
+            except Exception as e:
+                rows_count = 0
+                columns_count = 0
+                quality_score = 0.0
+                analysis_json = None
+                status = "uploaded"
 
             # 3. Create Dataset record
             db_dataset = Dataset(
                 filename=clean_name,
                 stored_path=file_path,
                 rows_count=rows_count,
-                columns_count=cols_count,
-                quality_score=0.0,
-                status="uploaded",
-                source="huggingface",
+                columns_count=columns_count,
+                quality_score=quality_score,
+                status=status,
+                source=source,
+                analysis_json=analysis_json,
                 owner_id=current_user.id
             )
             db.add(db_dataset)
@@ -223,17 +320,16 @@ def import_dataset(
                 dataset_id=db_dataset.id,
                 user_id=current_user.id,
                 action="Import",
-                details=f"Imported dataset '{clean_name}' from Hugging Face Hub."
+                details=f"Imported dataset '{clean_name}' from {source}."
             )
             db.add(log)
             db.commit()
 
             return db_dataset
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Hugging Face import failed: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"{source} import failed: {str(e)}")
 
     elif source == "kaggle":
-        # Check Kaggle Credentials first
         if not os.environ.get("KAGGLE_USERNAME") and not os.path.exists(os.path.expanduser("~/.kaggle/kaggle.json")):
             raise HTTPException(
                 status_code=400,
@@ -244,11 +340,9 @@ def import_dataset(
             api = KaggleApi()
             api.authenticate()
 
-            # Download using Kaggle Api in a temp folder
             with tempfile.TemporaryDirectory() as tmpdir:
                 api.dataset_download_files(full_name, path=tmpdir, unzip=True)
                 
-                # Scan for CSV files
                 csv_file = None
                 for root, _, files in os.walk(tmpdir):
                     for file in files:
@@ -261,39 +355,43 @@ def import_dataset(
                 if not csv_file:
                     raise Exception("No CSV files found in the Kaggle dataset package.")
 
-                # Save to uploads
                 original_filename = os.path.basename(csv_file)
                 stored_name = f"{int(time.time())}_{original_filename}"
                 file_path = os.path.join(settings.upload_dir, stored_name)
                 shutil.copy(csv_file, file_path)
 
-            # Get metadata
-            rows_count = 0
-            cols_count = 0
+            # Get metadata and run profiler
+            from app.quality import analyze_dataframe, read_dataset, json_dumps
             try:
-                import pandas as pd
-                df = pd.read_csv(file_path)
-                rows_count = len(df)
-                cols_count = len(df.columns)
-            except Exception:
-                pass
+                df = read_dataset(file_path)
+                analysis = analyze_dataframe(df)
+                rows_count = analysis["rows_count"]
+                columns_count = analysis["columns_count"]
+                quality_score = analysis["quality_score"]
+                analysis_json = json_dumps(analysis)
+                status = "analyzed"
+            except Exception as e:
+                rows_count = 0
+                columns_count = 0
+                quality_score = 0.0
+                analysis_json = None
+                status = "uploaded"
 
-            # Create Database entries
             db_dataset = Dataset(
                 filename=original_filename,
                 stored_path=file_path,
                 rows_count=rows_count,
-                columns_count=cols_count,
-                quality_score=0.0,
-                status="uploaded",
+                columns_count=columns_count,
+                quality_score=quality_score,
+                status=status,
                 source="kaggle",
+                analysis_json=analysis_json,
                 owner_id=current_user.id
             )
             db.add(db_dataset)
             db.commit()
             db.refresh(db_dataset)
 
-            # Log
             log = LineageLog(
                 dataset_id=db_dataset.id,
                 user_id=current_user.id,
