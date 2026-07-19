@@ -245,6 +245,12 @@ export function importHubDataset(datasetDetails) {
   });
 }
 
+export function deleteDownloadHistoryLog(logId) {
+  return request(`/api/datasets/downloads/history/${logId}`, {
+    method: "DELETE",
+  });
+}
+
 export function wakeUpBackend() {
   return request("/").catch(() => {});
 }

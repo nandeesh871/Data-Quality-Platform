@@ -320,6 +320,24 @@ def get_download_history(
     return history
 
 
+@router.delete("/downloads/history/{log_id}")
+def delete_download_history_item(
+    log_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    log = db.query(LineageLog).filter(LineageLog.id == log_id).first()
+    if not log:
+        raise HTTPException(status_code=404, detail="Download history item not found")
+
+    if user.role != "admin" and log.user_id != user.id:
+        raise HTTPException(status_code=403, detail="You can only delete your own download history entries")
+
+    db.delete(log)
+    db.commit()
+    return {"message": "Download history entry deleted successfully"}
+
+
 @router.get("/{dataset_id}/analysis", response_model=AnalysisOut)
 def get_analysis(
     dataset_id: int,

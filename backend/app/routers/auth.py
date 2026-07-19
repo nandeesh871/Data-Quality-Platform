@@ -169,15 +169,16 @@ def send_otp_email(to_email: str, otp: str, purpose: str) -> tuple[bool, str]:
         msg.add_alternative(html_body, subtype="html")
 
         # Setup SMTP server
-        # For Gmail, TLS is used on port 587, SSL on 465.
+        import ssl
+        context = ssl.create_default_context()
         if int(port) == 465:
-            with smtplib.SMTP_SSL(host, int(port), timeout=10) as server:
+            with smtplib.SMTP_SSL(host, int(port), context=context, timeout=15) as server:
                 server.login(user, password)
                 server.send_message(msg)
         else:
-            with smtplib.SMTP(host, int(port), timeout=10) as server:
+            with smtplib.SMTP(host, int(port), timeout=15) as server:
                 server.ehlo()
-                server.starttls()
+                server.starttls(context=context)
                 server.ehlo()
                 server.login(user, password)
                 server.send_message(msg)

@@ -64,12 +64,13 @@ POPULAR_TEMPLATES = [
 # Helper to scan a single HF dataset tree in parallel
 def get_hf_csv_path(ds_id: str) -> str | None:
     try:
-        url = f"https://huggingface.co/api/datasets/{ds_id}/tree/main"
-        resp = requests.get(url, timeout=3)
+        url = f"https://huggingface.co/api/datasets/{ds_id}"
+        resp = requests.get(url, timeout=4)
         if resp.status_code == 200:
-            files = resp.json()
-            for f in files:
-                path = f.get("path", "")
+            info = resp.json()
+            siblings = info.get("siblings", [])
+            for f in siblings:
+                path = f.get("rfilename", "")
                 if path.endswith(".csv"):
                     return path
     except Exception:
@@ -91,14 +92,14 @@ def search_huggingface(query: str) -> list[dict]:
             for item, csv_path in zip(data, csv_paths):
                 if csv_path:
                     ds_id = item.get("id")
-                    download_url = f"https://huggingface.co/datasets/{ds_id}/resolve/main/{csv_path}"
+                    download_url = f"https://huggingface.co/datasets/{ds_id}/raw/main/{csv_path}"
                     desc = item.get("description", "")
                     if not desc:
                         desc = f"Hugging Face dataset by {item.get('author', 'unknown')}. Downloads: {item.get('downloads', 0)}."
                     
                     results.append({
                         "id": ds_id,
-                        "name": ds_id.split("/")[-1],
+                        "name": ds_id.split("/")[-1].replace("-", " ").title(),
                         "fullName": ds_id,
                         "description": desc[:250] + "..." if len(desc) > 250 else desc,
                         "size": "Public Hub",
@@ -123,9 +124,7 @@ def search_kaggle(query: str) -> list[dict]:
                 subtitle = ds.get("subtitle", "")
                 size_bytes = ds.get("totalBytes", 0)
                 
-                if size_bytes < 1024:
-                    size_str = f"{size_bytes} B"
-                elif size_bytes < 1024 * 1024:
+                if size_bytes < 1024 * 1024:
                     size_str = f"{size_bytes / 1024:.1f} KB"
                 else:
                     size_str = f"{size_bytes / (1024 * 1024):.1f} MB"
@@ -150,7 +149,7 @@ def search_datagov(query: str) -> list[dict]:
     results = []
     try:
         url = "https://api.gsa.gov/technology/datagov/v3/action/package_search"
-        resp = requests.get(url, params={"q": query, "api_key": "DEMO_KEY", "rows": 8}, timeout=5)
+        resp = requests.get(url, params={"q": query, "api_key": "DEMO_KEY", "rows": 25}, timeout=6)
         if resp.status_code == 200:
             data = resp.json()
             packages = data.get("result", {}).get("results", [])
@@ -162,8 +161,8 @@ def search_datagov(query: str) -> list[dict]:
                 csv_url = None
                 for res in resources:
                     res_url = res.get("url", "")
-                    res_format = res.get("format", "").lower()
-                    if res_format == "csv" or res_url.lower().endswith(".csv"):
+                    fmt = str(res.get("format", "")).lower()
+                    if "csv" in fmt or "comma" in fmt or res_url.lower().endswith(".csv") or "rows.csv" in res_url.lower():
                         csv_url = res_url
                         break
                 
@@ -429,8 +428,12 @@ def import_dataset(
             )
 
         try:
-            original_filename = os.path.basename(csv_file)
-            stored_name = f"{int(time.time())}_{original_filename}"
+            clean_title = dataset_name.strip() if dataset_name and dataset_name != "dataset" else os.path.basename(csv_file)
+            clean_title = clean_title.replace("/", "_").replace("\\", "_")
+            if not clean_title.endswith(".csv"):
+                clean_title += ".csv"
+
+            stored_name = f"{int(time.time())}_{clean_title}"
             file_path = os.path.join(settings.upload_dir, stored_name)
             shutil.copy(csv_file, file_path)
             shutil.rmtree(temp_dir, ignore_errors=True)
@@ -454,7 +457,7 @@ def import_dataset(
                 status = "uploaded"
 
             db_dataset = Dataset(
-                filename=original_filename,
+                filename=clean_title,
                 stored_path=file_path,
                 rows_count=rows_count,
                 columns_count=columns_count,
@@ -472,7 +475,7 @@ def import_dataset(
                 dataset_id=db_dataset.id,
                 user_id=current_user.id,
                 action="Import",
-                details=f"Imported dataset '{original_filename}' from Kaggle Hub."
+                details=f"Imported dataset '{clean_title}' from Kaggle Hub."
             )
             db.add(log)
             db.commit()

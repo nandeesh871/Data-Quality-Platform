@@ -42,7 +42,8 @@ import {
   Calendar,
   Eye,
   EyeOff,
-  FileText
+  FileText,
+  X,
 } from "lucide-react";
 import {
   cleanDataset,
@@ -68,6 +69,7 @@ import {
   deleteMe,
   getUserSummary,
   getDownloadHistory,
+  deleteDownloadHistoryLog,
   requestOTP,
   verifyOTPLogin,
   verifyOTPReset,
@@ -683,7 +685,7 @@ function UserDashboard({ summary, onOpenDataset, onNavigateToLibrary, userProfil
   );
 }
 
-function UserDownloadsView({ downloads, onOpenDataset, onDownload, loading, userProfile }) {
+function UserDownloadsView({ downloads, onOpenDataset, onDownload, onDeleteHistory, loading, userProfile }) {
   if (loading && downloads.length === 0) {
     return (
       <div className="card empty-state text-center">
@@ -722,6 +724,7 @@ function UserDownloadsView({ downloads, onOpenDataset, onDownload, loading, user
                   <th>Version Quality</th>
                   <th>Status</th>
                   <th>Export Format Re-downloads</th>
+                  <th style={{ textAlign: "center" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -769,6 +772,28 @@ function UserDownloadsView({ downloads, onOpenDataset, onDownload, loading, user
                           )}
                         </div>
                       </div>
+                    </td>
+                    <td style={{ textAlign: "center" }}>
+                      <button
+                        className="btn-icon-danger"
+                        onClick={() => onDeleteHistory && onDeleteHistory(item.log_id)}
+                        title="Delete from history"
+                        style={{
+                          background: "rgba(239, 68, 68, 0.1)",
+                          border: "1px solid rgba(239, 68, 68, 0.2)",
+                          color: "#ef4444",
+                          borderRadius: "6px",
+                          padding: "6px 10px",
+                          cursor: "pointer",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "4px",
+                          fontSize: "12px",
+                          fontWeight: "600"
+                        }}
+                      >
+                        <Trash2 size={14} /> Delete
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -3226,6 +3251,77 @@ function UserProfileView({ userProfile, onProfileUpdate, onPasswordChange, theme
   );
 }
 
+function ToastNotifications({ toasts, onDismiss }) {
+  if (toasts.length === 0) return null;
+
+  return (
+    <div 
+      className="toast-container" 
+      style={{
+        position: "fixed",
+        bottom: "24px",
+        right: "24px",
+        zIndex: 9999,
+        display: "flex",
+        flexDirection: "column",
+        gap: "10px",
+        maxWidth: "380px",
+        pointerEvents: "none"
+      }}
+    >
+      {toasts.map((toast) => (
+        <div
+          key={toast.id}
+          className="toast-item animate-slide-in"
+          style={{
+            pointerEvents: "auto",
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            padding: "14px 18px",
+            borderRadius: "12px",
+            background: "rgba(15, 23, 42, 0.94)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            border: toast.type === "success" 
+              ? "1px solid rgba(16, 185, 129, 0.5)" 
+              : toast.type === "error"
+              ? "1px solid rgba(239, 68, 68, 0.5)"
+              : "1px solid rgba(34, 211, 238, 0.5)",
+            boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.3)",
+            color: "#f8fafc",
+            fontSize: "13px",
+            fontWeight: "500"
+          }}
+        >
+          {toast.type === "success" ? (
+            <CheckCircle2 size={20} style={{ color: "#10b981", flexShrink: 0 }} />
+          ) : toast.type === "error" ? (
+            <ShieldAlert size={20} style={{ color: "#ef4444", flexShrink: 0 }} />
+          ) : (
+            <Sparkles size={20} style={{ color: "#22d3ee", flexShrink: 0 }} />
+          )}
+          <span style={{ flex: 1, lineHeight: "1.4" }}>{toast.message}</span>
+          <button
+            onClick={() => onDismiss(toast.id)}
+            style={{
+              background: "none",
+              border: "none",
+              color: "#94a3b8",
+              cursor: "pointer",
+              padding: "2px",
+              display: "flex",
+              alignItems: "center"
+            }}
+          >
+            <X size={14} />
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function App() {
   const [authenticated, setAuthenticated] = useState(Boolean(getToken()));
   const [datasets, setDatasets] = useState([]);
@@ -3242,6 +3338,20 @@ export default function App() {
   const [downloadHistory, setDownloadHistory] = useState([]);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const profileMenuRef = useRef(null);
+
+  const [toasts, setToasts] = useState([]);
+
+  function showToast(msg, type = "success") {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev, { id, message: msg, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 4000);
+  }
+
+  function dismissToast(id) {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }
 
   const [pipelineModal, setPipelineModal] = useState({ show: false, title: "", message: "", type: "success" });
   const [theme, setTheme] = useState(() => {
@@ -3502,8 +3612,10 @@ export default function App() {
       await fetchDownloadHistory();
       setView("dataset_detail");
       setMessage("Dataset uploaded and quality scores generated.");
+      showToast(`Dataset '${result?.dataset?.filename || file.name}' uploaded successfully!`, "success");
     } catch (err) {
       setMessage(err.message);
+      showToast(err.message, "error");
     } finally {
       setLoading(false);
       event.target.value = "";
@@ -3521,8 +3633,10 @@ export default function App() {
       await fetchDownloadHistory();
       setView("dataset_detail");
       setMessage("Dataset imported and quality scores generated.");
+      showToast(`Dataset '${result?.filename || datasetDetails.name}' imported to library!`, "success");
     } catch (err) {
       setMessage(err.message);
+      showToast(err.message, "error");
     } finally {
       setLoading(false);
     }
@@ -3537,6 +3651,7 @@ export default function App() {
       setView("dataset_detail");
     } catch (err) {
       setMessage(err.message);
+      showToast(err.message, "error");
     } finally {
       setLoading(false);
     }
@@ -3545,11 +3660,25 @@ export default function App() {
   async function handleDownload(dataset, format, version = "current") {
     setMessage("");
     try {
+      showToast(`Preparing ${format.toUpperCase()} download for ${dataset.filename}...`, "info");
       await downloadDataset(dataset.id, format, dataset.filename, version);
       await refreshUserSummary();
       await fetchDownloadHistory();
+      showToast(`Dataset '${dataset.filename}' downloaded as ${format.toUpperCase()}!`, "success");
     } catch (err) {
       setMessage(err.message);
+      showToast(err.message, "error");
+    }
+  }
+
+  async function handleDeleteHistory(logId) {
+    try {
+      await deleteDownloadHistoryLog(logId);
+      await fetchDownloadHistory();
+      await refreshUserSummary();
+      showToast("Download history entry removed successfully!", "info");
+    } catch (err) {
+      showToast(err.message, "error");
     }
   }
 
@@ -3565,6 +3694,7 @@ export default function App() {
       await refreshUserSummary();
       finishProgressSuccess();
       setMessage("Data cleaning pipeline completed.");
+      showToast(`Data cleaning completed using strategy '${strategy}'!`, "success");
       setPipelineModal({
         show: true,
         title: "Cleaning Completed",
@@ -3574,6 +3704,7 @@ export default function App() {
     } catch (err) {
       finishProgressError(err.message);
       setMessage(err.message);
+      showToast(err.message, "error");
       setPipelineModal({
         show: true,
         title: "Cleaning Failed",
@@ -3597,6 +3728,7 @@ export default function App() {
       await refreshUserSummary();
       finishProgressSuccess();
       setMessage("Preprocessing and feature scaling completed.");
+      showToast("Feature preprocessing & outlier treatment completed!", "success");
       setPipelineModal({
         show: true,
         title: "Preprocessing Completed",
@@ -3606,6 +3738,7 @@ export default function App() {
     } catch (err) {
       finishProgressError(err.message);
       setMessage(err.message);
+      showToast(err.message, "error");
       setPipelineModal({
         show: true,
         title: "Preprocessing Failed",
@@ -3621,6 +3754,7 @@ export default function App() {
     if (!selected?.dataset?.id) return;
     if (!targetCol) {
       setMessage("Target column is not defined. Please select a valid target column to train the model.");
+      showToast("Please select a target column for model training.", "error");
       return;
     }
     setLoading(true);
@@ -3633,6 +3767,7 @@ export default function App() {
       await refreshUserSummary();
       finishProgressSuccess();
       setMessage("Model training and validation completed.");
+      showToast(`ML model trained targeting '${targetCol}'!`, "success");
       setPipelineModal({
         show: true,
         title: "Training Completed",
@@ -3642,6 +3777,7 @@ export default function App() {
     } catch (err) {
       finishProgressError(err.message);
       setMessage(err.message);
+      showToast(err.message, "error");
       setPipelineModal({
         show: true,
         title: "Training Failed",
@@ -4073,6 +4209,7 @@ export default function App() {
               downloads={downloadHistory}
               onOpenDataset={openDataset}
               onDownload={handleDownload}
+              onDeleteHistory={handleDeleteHistory}
               loading={loading}
               userProfile={userProfile}
             />
@@ -4101,6 +4238,7 @@ export default function App() {
           )}
         </main>
       </section>
+      <ToastNotifications toasts={toasts} onDismiss={dismissToast} />
     </main>
   );
 }
