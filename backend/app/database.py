@@ -11,8 +11,8 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
     # SMTP Configuration for Email OTPs
-    smtp_host: str | None = None
-    smtp_port: int | None = None
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
     smtp_user: str | None = None
     smtp_password: str | None = None
     smtp_from: str | None = None
