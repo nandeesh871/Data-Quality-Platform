@@ -358,60 +358,89 @@ def import_dataset(
             raise HTTPException(status_code=500, detail=f"{source} import failed: {str(e)}")
 
     elif source == "kaggle":
-        username = os.environ.get("KAGGLE_USERNAME")
-        key = os.environ.get("KAGGLE_KEY")
+        csv_file = None
+        temp_dir = tempfile.mkdtemp()
         
-        if not username or not key:
-            if not os.path.exists(os.path.expanduser("~/.kaggle/kaggle.json")):
-                raise HTTPException(
-                    status_code=400,
-                    detail="Kaggle API credentials are not configured on this server. To import Kaggle datasets, please set KAGGLE_USERNAME and KAGGLE_KEY environment variables in your Render backend settings."
-                )
-        else:
-            try:
-                home = os.path.expanduser("~")
-                kaggle_dir = os.path.join(home, ".kaggle")
-                os.makedirs(kaggle_dir, exist_ok=True)
-                kaggle_json_path = os.path.join(kaggle_dir, "kaggle.json")
-                
-                import json
-                with open(kaggle_json_path, "w") as f:
-                    json.dump({"username": username, "key": key}, f)
-                os.chmod(kaggle_json_path, 0o600)
-            except Exception as e:
-                print(f"Failed to write kaggle.json: {e}")
-
+        # 1. Attempt direct anonymous HTTP dataset zip download
         try:
-            from kaggle.api.kaggle_api_extended import KaggleApi
-            api = KaggleApi()
-            api.authenticate()
-
-            with tempfile.TemporaryDirectory() as tmpdir:
-                api.dataset_download_files(full_name, path=tmpdir, unzip=True)
+            download_endpoint = f"https://www.kaggle.com/api/v1/datasets/download/{full_name}"
+            headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+            resp = requests.get(download_endpoint, headers=headers, allow_redirects=True, stream=True, timeout=45)
+            
+            if resp.status_code == 200:
+                zip_path = os.path.join(temp_dir, "kaggle_dataset.zip")
+                with open(zip_path, "wb") as f:
+                    for chunk in resp.iter_content(chunk_size=16384):
+                        f.write(chunk)
                 
-                csv_file = None
-                for root, _, files in os.walk(tmpdir):
+                if zipfile.is_zipfile(zip_path):
+                    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                        zip_ref.extractall(temp_dir)
+                    
+                    for root, _, files in os.walk(temp_dir):
+                        for file in files:
+                            if file.endswith(".csv"):
+                                csv_file = os.path.join(root, file)
+                                break
+                        if csv_file:
+                            break
+        except Exception as http_err:
+            print(f"Kaggle direct HTTP download attempt failed: {http_err}")
+
+        # 2. Fallback to Kaggle API using credentials if direct download wasn't possible
+        if not csv_file:
+            username = os.environ.get("KAGGLE_USERNAME")
+            key = os.environ.get("KAGGLE_KEY")
+            
+            if username and key:
+                try:
+                    home = os.path.expanduser("~")
+                    kaggle_dir = os.path.join(home, ".kaggle")
+                    os.makedirs(kaggle_dir, exist_ok=True)
+                    kaggle_json_path = os.path.join(kaggle_dir, "kaggle.json")
+                    import json
+                    with open(kaggle_json_path, "w") as f:
+                        json.dump({"username": username.strip(), "key": key.strip()}, f)
+                    os.chmod(kaggle_json_path, 0o600)
+                except Exception as e:
+                    print(f"Failed to write kaggle.json: {e}")
+
+            try:
+                from kaggle.api.kaggle_api_extended import KaggleApi
+                api = KaggleApi()
+                api.authenticate()
+                api.dataset_download_files(full_name, path=temp_dir, unzip=True)
+                
+                for root, _, files in os.walk(temp_dir):
                     for file in files:
                         if file.endswith(".csv"):
                             csv_file = os.path.join(root, file)
                             break
                     if csv_file:
                         break
+            except Exception as api_err:
+                print(f"Kaggle API attempt failed: {api_err}")
 
-                if not csv_file:
-                    raise Exception("No CSV files found in the Kaggle dataset package.")
+        if not csv_file:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            raise HTTPException(
+                status_code=400,
+                detail=f"Could not download CSV file for Kaggle dataset '{full_name}'. Please verify the dataset contains a public CSV file."
+            )
 
-                original_filename = os.path.basename(csv_file)
-                stored_name = f"{int(time.time())}_{original_filename}"
-                file_path = os.path.join(settings.upload_dir, stored_name)
-                shutil.copy(csv_file, file_path)
+        try:
+            original_filename = os.path.basename(csv_file)
+            stored_name = f"{int(time.time())}_{original_filename}"
+            file_path = os.path.join(settings.upload_dir, stored_name)
+            shutil.copy(csv_file, file_path)
+            shutil.rmtree(temp_dir, ignore_errors=True)
 
-            # Get metadata and run profiler
             from app.quality import analyze_dataframe, read_dataset, json_dumps
             try:
                 df = read_dataset(file_path)
                 analysis = analyze_dataframe(df, file_path=file_path)
                 analysis["kaggle_fullname"] = full_name
+                analysis["download_url"] = f"https://www.kaggle.com/api/v1/datasets/download/{full_name}"
                 rows_count = analysis["rows_count"]
                 columns_count = analysis["columns_count"]
                 quality_score = analysis["quality_score"]
@@ -450,7 +479,8 @@ def import_dataset(
 
             return db_dataset
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Kaggle import failed: {str(e)}")
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            raise HTTPException(status_code=500, detail=f"Kaggle import processing failed: {str(e)}")
 
     else:
         raise HTTPException(status_code=400, detail=f"Unsupported import source: {source}")

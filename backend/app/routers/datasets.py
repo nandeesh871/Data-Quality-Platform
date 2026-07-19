@@ -92,43 +92,70 @@ def ensure_dataset_file_exists(dataset: Dataset, db: Session) -> bool:
             if not full_name:
                 return False
 
-            username = os.environ.get("KAGGLE_USERNAME")
-            key = os.environ.get("KAGGLE_KEY")
-            if not username or not key:
-                if not os.path.exists(os.path.expanduser("~/.kaggle/kaggle.json")):
-                    return False
-            else:
-                home = os.path.expanduser("~")
-                kaggle_dir = os.path.join(home, ".kaggle")
-                os.makedirs(kaggle_dir, exist_ok=True)
-                kjson = os.path.join(kaggle_dir, "kaggle.json")
-                import json
-                with open(kjson, "w") as f:
-                    json.dump({"username": username, "key": key}, f)
-                os.chmod(kjson, 0o600)
-
             print(f"Self-healing: Restoring Kaggle file {dataset.filename} for {full_name}...")
-            from kaggle.api.kaggle_api_extended import KaggleApi
-            api = KaggleApi()
-            api.authenticate()
+            import tempfile, shutil, zipfile
+            tmpdir = tempfile.mkdtemp()
+            csv_file = None
 
-            import tempfile, shutil
-            with tempfile.TemporaryDirectory() as tmpdir:
-                api.dataset_download_files(full_name, path=tmpdir, unzip=True)
-                
-                csv_file = None
-                for root, _, files in os.walk(tmpdir):
-                    for file in files:
-                        if file.endswith(".csv"):
-                            csv_file = os.path.join(root, file)
+            # Attempt 1: Direct HTTP ZIP download
+            try:
+                download_endpoint = f"https://www.kaggle.com/api/v1/datasets/download/{full_name}"
+                headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+                resp = requests.get(download_endpoint, headers=headers, allow_redirects=True, stream=True, timeout=45)
+                if resp.status_code == 200:
+                    zip_path = os.path.join(tmpdir, "kaggle_dataset.zip")
+                    with open(zip_path, "wb") as f:
+                        for chunk in resp.iter_content(chunk_size=16384):
+                            f.write(chunk)
+                    if zipfile.is_zipfile(zip_path):
+                        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                            zip_ref.extractall(tmpdir)
+                        for root, _, files in os.walk(tmpdir):
+                            for file in files:
+                                if file.endswith(".csv"):
+                                    csv_file = os.path.join(root, file)
+                                    break
+                            if csv_file:
+                                break
+            except Exception as http_err:
+                print(f"Kaggle self-healing HTTP attempt failed: {http_err}")
+
+            # Attempt 2: Fallback to Kaggle API
+            if not csv_file:
+                username = os.environ.get("KAGGLE_USERNAME")
+                key = os.environ.get("KAGGLE_KEY")
+                if username and key:
+                    home = os.path.expanduser("~")
+                    kaggle_dir = os.path.join(home, ".kaggle")
+                    os.makedirs(kaggle_dir, exist_ok=True)
+                    kjson = os.path.join(kaggle_dir, "kaggle.json")
+                    import json
+                    with open(kjson, "w") as f:
+                        json.dump({"username": username.strip(), "key": key.strip()}, f)
+                    os.chmod(kjson, 0o600)
+
+                try:
+                    from kaggle.api.kaggle_api_extended import KaggleApi
+                    api = KaggleApi()
+                    api.authenticate()
+                    api.dataset_download_files(full_name, path=tmpdir, unzip=True)
+                    for root, _, files in os.walk(tmpdir):
+                        for file in files:
+                            if file.endswith(".csv"):
+                                csv_file = os.path.join(root, file)
+                                break
+                        if csv_file:
                             break
-                    if csv_file:
-                        break
+                except Exception as api_err:
+                    print(f"Kaggle self-healing API attempt failed: {api_err}")
 
-                if csv_file:
-                    shutil.copy(csv_file, dataset.stored_path)
-                    print(f"Kaggle file {dataset.filename} restored successfully!")
-                    return True
+            if csv_file:
+                shutil.copy(csv_file, dataset.stored_path)
+                shutil.rmtree(tmpdir, ignore_errors=True)
+                print(f"Kaggle file {dataset.filename} restored successfully!")
+                return True
+
+            shutil.rmtree(tmpdir, ignore_errors=True)
 
     except Exception as e:
         print(f"Failed to self-heal dataset file: {e}")

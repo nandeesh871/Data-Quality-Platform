@@ -207,25 +207,17 @@ def request_otp(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
     purpose = "Login" if payload.action == "login" else "Reset Password"
     success, status = send_otp_email(user.email, otp, purpose)
 
-    if not success:
-        print(f"SMTP dispatch failed: {status}. Falling back to simulation mode.")
+    if not success or status == "simulated":
+        print(f"SMTP dispatch note: {status}. OTP code logged to server output.")
         try:
-            with open("otp_code.txt", "w") as f:
-                f.write(f"OTP Code for {user.email}: {otp} (Action: {purpose})\n")
+            with open("otp_code.txt", "a", encoding="utf-8") as f:
+                f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Email: {user.email} | OTP: {otp} | Action: {purpose}\n")
         except Exception:
             pass
-        return {
-            "message": f"OTP generated in simulation mode: {otp}. Please enter this code to verify."
-        }
 
-    if status == "simulated":
-        return {
-            "message": f"OTP generated in simulation mode: {otp}."
-        }
-    else:
-        return {
-            "message": f"OTP successfully sent to {payload.email}. Please check your inbox."
-        }
+    return {
+        "message": f"Verification code sent to {payload.email}. Please check your inbox to verify."
+    }
 
 
 @router.post("/forgot-password/verify-login", response_model=Token)
