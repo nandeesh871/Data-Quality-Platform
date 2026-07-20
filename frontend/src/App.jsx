@@ -2140,8 +2140,8 @@ function Dashboard({
               <thead>
                 <tr>
                   <th>Feature Column</th>
-                  <th>Transformation Applied</th>
-                  <th>Outliers Treated / Action Taken</th>
+                  <th>Transformation</th>
+                  <th>Action Taken</th>
                   <th>Status</th>
                 </tr>
               </thead>
@@ -2208,7 +2208,7 @@ function Dashboard({
                   <th>Validation Metric</th>
                   <th>Score Value</th>
                   <th>Evaluation Standard</th>
-                  <th>Model Quality Certification</th>
+                  <th>Certification</th>
                 </tr>
               </thead>
               <tbody>

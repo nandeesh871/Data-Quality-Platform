@@ -2205,30 +2205,48 @@ tr:hover td {
 
   table.print-comparison-table {
     width: 100% !important;
-    table-layout: fixed !important;
+    table-layout: auto !important;
     border-collapse: collapse !important;
     font-size: 11px !important;
+    margin-bottom: 12px !important;
   }
 
   table.print-comparison-table th, 
   table.print-comparison-table td {
-    padding: 6px 8px !important;
-    word-wrap: break-word !important;
+    padding: 8px 10px !important;
+    text-align: left !important;
+    vertical-align: middle !important;
+    white-space: normal !important;
+    word-break: normal !important;
     overflow-wrap: break-word !important;
     box-sizing: border-box !important;
+    border: 1px solid #cbd5e1 !important;
   }
 
-  table.print-comparison-table th:nth-child(1),
-  table.print-comparison-table td:nth-child(1) { width: 30% !important; }
+  table.print-comparison-table th {
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
+    font-weight: 700 !important;
+    font-size: 11px !important;
+  }
 
-  table.print-comparison-table th:nth-child(2),
-  table.print-comparison-table td:nth-child(2) { width: 22% !important; }
+  table.print-comparison-table td {
+    background: #ffffff !important;
+    color: #1e293b !important;
+    font-size: 11px !important;
+  }
 
-  table.print-comparison-table th:nth-child(3),
-  table.print-comparison-table td:nth-child(3) { width: 22% !important; }
-
-  table.print-comparison-table th:nth-child(4),
-  table.print-comparison-table td:nth-child(4) { width: 26% !important; }
+  .improvement-positive, .status, .badge-preprocessed {
+    display: inline-block !important;
+    position: static !important;
+    float: none !important;
+    margin: 0 !important;
+    padding: 2px 6px !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    border-radius: 4px !important;
+    white-space: nowrap !important;
+  }
 
   table {
     width: 100% !important;

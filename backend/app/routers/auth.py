@@ -266,37 +266,38 @@ def send_otp_email(to_email: str, otp: str, purpose: str) -> tuple[bool, str]:
         msg.set_content(f"Your OTP is {otp} to perform {purpose}.")
         msg.add_alternative(html_body, subtype="html")
 
-        # Setup SMTP server with multi-port fallback (Try 587 STARTTLS, then 465 SSL)
+        # Setup SMTP server with multi-port fallback (Try 465 SSL first, then 587 STARTTLS)
         context = ssl.create_default_context()
         sent = False
         last_error = ""
 
-        # Try Port 587 STARTTLS first
+        # Try Port 465 SSL first (Most reliable for cloud hosts like Render)
         try:
-            with smtplib.SMTP(host, 587, timeout=12) as server:
-                server.ehlo()
-                server.starttls(context=context)
-                server.ehlo()
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context, timeout=10) as server:
                 server.login(user, password)
                 server.send_message(msg)
                 sent = True
-        except Exception as err587:
-            last_error = str(err587)
-            print(f"SMTP Port 587 failed: {err587}. Trying Port 465 SSL...")
+                print(f"Successfully sent confidential OTP email to {to_email} via SMTP SSL Port 465.")
+        except Exception as err465:
+            last_error = str(err465)
+            print(f"SMTP SSL Port 465 failed: {err465}. Trying STARTTLS Port 587...")
 
-        # Fallback to Port 465 SSL if 587 failed
+        # Fallback to Port 587 STARTTLS if 465 failed
         if not sent:
             try:
-                with smtplib.SMTP_SSL(host, 465, context=context, timeout=12) as server:
+                with smtplib.SMTP("smtp.gmail.com", 587, timeout=10) as server:
+                    server.ehlo()
+                    server.starttls(context=context)
+                    server.ehlo()
                     server.login(user, password)
                     server.send_message(msg)
                     sent = True
-            except Exception as err465:
-                last_error = str(err465)
-                print(f"SMTP Port 465 failed: {err465}")
+                    print(f"Successfully sent confidential OTP email to {to_email} via SMTP STARTTLS Port 587.")
+            except Exception as err587:
+                last_error = str(err587)
+                print(f"SMTP STARTTLS Port 587 failed: {err587}")
 
         if sent:
-            print(f"Successfully sent confidential OTP email to {to_email} via SMTP.")
             return True, "sent"
         else:
             return False, last_error
