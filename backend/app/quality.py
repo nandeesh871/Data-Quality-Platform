@@ -16,16 +16,20 @@ except ImportError:
 
 
 def read_dataset(path: str | Path) -> pd.DataFrame:
-    # Safely sample large files to protect Render containers from RAM OOM
-    import os
+    # Safely sample large files to protect Render containers from RAM OOM (512MB limit)
+    import os, gc
     try:
         file_size = os.path.getsize(path)
-        if file_size > 8 * 1024 * 1024:  # > 8MB
-            # Load first 100,000 rows as sample representation
-            return pd.read_csv(path, nrows=100000)
+        if file_size > 4 * 1024 * 1024:  # > 4MB
+            # Load first 30,000 rows as sample representation to keep memory usage under 60MB RAM
+            df = pd.read_csv(path, nrows=30000)
+            gc.collect()
+            return df
     except Exception:
         pass
-    return pd.read_csv(path)
+    df = pd.read_csv(path)
+    gc.collect()
+    return df
 
 
 def get_exact_row_count(path: str | Path) -> int:

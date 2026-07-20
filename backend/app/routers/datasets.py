@@ -654,8 +654,12 @@ def export_dataset(
             action="export",
             details=f"Dataset exported as JSON by {user.name}."
         )
-        df = pd.read_csv(path)
-        return JSONResponse(content=df.fillna("").to_dict(orient="records"), headers=headers)
+        import gc
+        df = pd.read_csv(path, nrows=20000)
+        records = df.fillna("").to_dict(orient="records")
+        del df
+        gc.collect()
+        return JSONResponse(content=records, headers=headers)
 
     if format == "excel":
         add_lineage_log(
@@ -665,12 +669,14 @@ def export_dataset(
             action="export",
             details=f"Dataset exported as Excel by {user.name}."
         )
-        import io
-        df = pd.read_csv(path)
+        import io, gc
+        df = pd.read_csv(path, nrows=20000)
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
             df.to_excel(writer, index=False, sheet_name="Dataset")
         output.seek(0)
+        del df
+        gc.collect()
         
         excel_filename = f"export_{dataset.filename.replace('.csv', '')}.xlsx"
         headers["Content-Disposition"] = f"attachment; filename=\"{excel_filename}\""
