@@ -124,4 +124,9 @@ class OTPResetVerify(BaseModel):
     new_password: str
 
 
+class DirectResetRequest(BaseModel):
+    email: EmailStr
+    new_password: str
+
+
 

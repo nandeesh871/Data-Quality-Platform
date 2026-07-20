@@ -17,6 +17,7 @@ from ..schemas import (
     ForgotPasswordRequest,
     OTPLoginVerify,
     OTPResetVerify,
+    DirectResetRequest,
 )
 
 router = APIRouter()
@@ -373,6 +374,20 @@ def verify_otp_reset(payload: OTPResetVerify, db: Session = Depends(get_db)):
     db.commit()
 
     return {"message": "Password reset successfully. You can now sign in."}
+
+
+@router.post("/forgot-password/direct-reset")
+def direct_password_reset(payload: DirectResetRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == payload.email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Email address not found")
+
+    user.password_hash = hash_password(payload.new_password)
+    user.otp_code = None
+    user.otp_expiry = None
+    db.commit()
+
+    return {"message": "Password reset successfully! You can now log in with your new password."}
 
 
 @router.delete("/me")

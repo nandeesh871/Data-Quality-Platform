@@ -73,6 +73,7 @@ import {
   requestOTP,
   verifyOTPLogin,
   verifyOTPReset,
+  directResetPassword,
   searchHubDatasets,
   importHubDataset,
   wakeUpBackend,

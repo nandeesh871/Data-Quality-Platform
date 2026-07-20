@@ -146,6 +146,14 @@ export function verifyOTPReset(email, otp, newPassword) {
   });
 }
 
+export function directResetPassword(email, newPassword) {
+  return request("/api/auth/forgot-password/direct-reset", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, new_password: newPassword }),
+  });
+}
+
 export function listDatasets(search = "") {
   const query = search ? `?search=${encodeURIComponent(search)}` : "";
   return request(`/api/datasets${query}`);
