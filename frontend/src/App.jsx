@@ -149,12 +149,7 @@ function AuthScreen({ onAuth }) {
     setLoading(true);
     try {
       const res = await requestOTP(form.email, action);
-      let successMsg = res.message || `OTP sent to ${form.email}`;
-      if (res.demo_otp) {
-        successMsg = `Verification code generated! Demo OTP Code: ${res.demo_otp} (Pre-filled below for instant verification)`;
-        setOtp(res.demo_otp);
-      }
-      setSuccess(successMsg);
+      setSuccess(res.message || `Verification code sent to ${form.email}. Please check your inbox to verify.`);
       setMode(action === "login" ? "verify_login" : "verify_reset");
     } catch (err) {
       setError(err.message);
@@ -3402,6 +3397,15 @@ export default function App() {
       return "system";
     }
   });
+
+  // Background keep-alive pinger for Render free container
+  useEffect(() => {
+    wakeUpBackend();
+    const interval = setInterval(() => {
+      wakeUpBackend();
+    }, 180000); // Ping every 3 minutes to keep Render container warm
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const applyTheme = () => {

@@ -258,22 +258,40 @@ def send_otp_email(to_email: str, otp: str, purpose: str) -> tuple[bool, str]:
         msg.set_content(f"Your OTP is {otp} to perform {purpose}.")
         msg.add_alternative(html_body, subtype="html")
 
-        # Setup SMTP server
+        # Setup SMTP server with multi-port fallback (Try 587 STARTTLS, then 465 SSL)
         context = ssl.create_default_context()
-        if int(port) == 465:
-            with smtplib.SMTP_SSL(host, int(port), context=context, timeout=15) as server:
-                server.login(user, password)
-                server.send_message(msg)
-        else:
-            with smtplib.SMTP(host, int(port), timeout=15) as server:
+        sent = False
+        last_error = ""
+
+        # Try Port 587 STARTTLS first
+        try:
+            with smtplib.SMTP(host, 587, timeout=12) as server:
                 server.ehlo()
                 server.starttls(context=context)
                 server.ehlo()
                 server.login(user, password)
                 server.send_message(msg)
+                sent = True
+        except Exception as err587:
+            last_error = str(err587)
+            print(f"SMTP Port 587 failed: {err587}. Trying Port 465 SSL...")
 
-        print(f"Successfully sent OTP email to {to_email} via SMTP.")
-        return True, "sent"
+        # Fallback to Port 465 SSL if 587 failed
+        if not sent:
+            try:
+                with smtplib.SMTP_SSL(host, 465, context=context, timeout=12) as server:
+                    server.login(user, password)
+                    server.send_message(msg)
+                    sent = True
+            except Exception as err465:
+                last_error = str(err465)
+                print(f"SMTP Port 465 failed: {err465}")
+
+        if sent:
+            print(f"Successfully sent confidential OTP email to {to_email} via SMTP.")
+            return True, "sent"
+        else:
+            return False, last_error
     except Exception as smtp_err:
         error_msg = str(smtp_err)
         print(f"SMTP sending failed: {error_msg}")
@@ -286,7 +304,7 @@ def request_otp(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=404, detail="Email address not found")
 
-    # Generate 6 digit OTP
+    # Generate 6 digit confidential OTP
     otp = f"{random.randint(100000, 999999)}"
     expiry = datetime.utcnow() + timedelta(minutes=5)
 
@@ -295,19 +313,24 @@ def request_otp(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
     db.commit()
 
     purpose = "Login" if payload.action == "login" else "Reset Password"
-    success, status = send_otp_email(user.email, otp, purpose)
+    success, status_msg = send_otp_email(user.email, otp, purpose)
 
-    if not success or status == "simulated":
-        print(f"SMTP dispatch note: {status}. OTP code logged to server output.")
-        try:
-            with open("otp_code.txt", "a", encoding="utf-8") as f:
-                f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Email: {user.email} | OTP: {otp} | Action: {purpose}\n")
-        except Exception:
-            pass
+    if not success:
+        print(f"SMTP dispatch failure: {status_msg}")
+        # Note: Code is never leaked on screen for privacy & security.
+        if status_msg == "simulated":
+            raise HTTPException(
+                status_code=400,
+                detail="Email delivery system is not configured on Render. Please configure SMTP_USER and SMTP_PASSWORD in Render Environment variables to enable real Gmail delivery."
+            )
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to deliver OTP email to your Gmail address ({user.email}). Error: {status_msg}"
+            )
 
     return {
-        "message": f"Verification code sent to {payload.email}. Please check your inbox to verify.",
-        "demo_otp": otp if status != "sent" else None
+        "message": f"Verification code sent to {payload.email}. Please check your inbox to verify."
     }
 
 

@@ -24,43 +24,60 @@ export function clearToken() {
   }
 }
 
-async function request(path, options = {}) {
+async function request(path, options = {}, retries = 3) {
   const headers = options.headers || {};
   const token = getToken();
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), options.timeout || 120000);
+  let attempt = 0;
+  while (attempt <= retries) {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), options.timeout || 120000);
 
-  let response;
-  try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
-      ...options,
-      headers,
-      signal: controller.signal,
-    });
-  } catch (error) {
-    if (error.name === "AbortError") {
-      throw new Error("Backend is taking too long. Restart the backend and try a smaller CSV file.");
+    try {
+      const response = await fetch(`${API_BASE_URL}${path}`, {
+        ...options,
+        headers,
+        signal: controller.signal,
+      });
+
+      window.clearTimeout(timeout);
+
+      if ([502, 503, 504].includes(response.status) && attempt < retries) {
+        attempt++;
+        await new Promise((r) => setTimeout(r, 4000));
+        continue;
+      }
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: "Request failed" }));
+        throw new Error(error.detail || "Request failed");
+      }
+
+      return await response.json();
+    } catch (error) {
+      window.clearTimeout(timeout);
+
+      if (attempt < retries && error.name !== "AbortError") {
+        attempt++;
+        await new Promise((r) => setTimeout(r, 4000));
+        continue;
+      }
+
+      if (error.name === "AbortError") {
+        throw new Error("Request timed out. Please try again.");
+      }
+
+      const isLocal = API_BASE_URL.includes("localhost") || API_BASE_URL.includes("127.0.0.1");
+      if (isLocal) {
+        throw new Error("Could not connect to backend. Check that FastAPI is running locally on port 8010.");
+      } else {
+        throw new Error("Could not connect to backend. The cloud service may be waking up (please wait ~20 seconds and try again) or is offline.");
+      }
     }
-    const isLocal = API_BASE_URL.includes("localhost") || API_BASE_URL.includes("127.0.0.1");
-    if (isLocal) {
-      throw new Error("Could not connect to backend. Check that FastAPI is running locally on port 8010.");
-    } else {
-      throw new Error("Could not connect to backend. The cloud service may be waking up (please wait ~50 seconds and try again) or is offline.");
-    }
-  } finally {
-    window.clearTimeout(timeout);
   }
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: "Request failed" }));
-    throw new Error(error.detail || "Request failed");
-  }
-
-  return response.json();
 }
 
 export function registerUser(payload) {
