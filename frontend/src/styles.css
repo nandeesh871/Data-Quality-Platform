@@ -2070,14 +2070,20 @@ tr:hover td {
 }
 
 @media print {
-  .print-only-section {
+  @page {
+    size: A4 portrait;
+    margin: 12mm 15mm;
+  }
+  
+  .print-only-section, .print-report-card {
     position: static !important;
     left: auto !important;
     top: auto !important;
     width: 100% !important;
     display: block !important;
-    margin-bottom: 32px !important;
-    page-break-inside: avoid;
+    margin-bottom: 24px !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
   .print-visualization-grid {
     display: grid !important;

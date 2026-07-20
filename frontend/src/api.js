@@ -222,15 +222,26 @@ export async function downloadDataset(id, format, filename = "dataset", version 
   }
 
   const blob = await response.blob();
+  const ext = format === "excel" ? "xlsx" : format;
+  const downloadFilename = `export_${filename.replace(/\.[^/.]+$/, "")}.${ext}`;
+
+  if (window.navigator && window.navigator.msSaveOrOpenBlob) {
+    window.navigator.msSaveOrOpenBlob(blob, downloadFilename);
+    return;
+  }
+
   const url = window.URL.createObjectURL(blob);
   const link = document.createElement("a");
+  link.style.display = "none";
   link.href = url;
-  const ext = format === "excel" ? "xlsx" : format;
-  link.download = `export_${filename.replace(/\.[^/.]+$/, "")}.${ext}`;
+  link.setAttribute("download", downloadFilename);
   document.body.appendChild(link);
   link.click();
-  link.remove();
-  window.URL.revokeObjectURL(url);
+  
+  setTimeout(() => {
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  }, 200);
 }
 
 export function searchHubDatasets(query) {

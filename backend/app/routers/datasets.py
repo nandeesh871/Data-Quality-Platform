@@ -604,7 +604,12 @@ def export_dataset(
             action="export",
             details=f"Dataset exported as CSV by {user.name}."
         )
-        return FileResponse(path, filename=f"export_{dataset.filename}", media_type="text/csv")
+        export_filename = f"export_{dataset.filename}"
+        headers = {
+            "Content-Disposition": f"attachment; filename=\"{export_filename}\"",
+            "Access-Control-Expose-Headers": "Content-Disposition"
+        }
+        return FileResponse(path, filename=export_filename, media_type="text/csv", headers=headers)
 
     if format == "json":
         add_lineage_log(

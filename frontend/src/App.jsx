@@ -733,10 +733,11 @@ function UserDownloadsView({ downloads, onOpenDataset, onDownload, onDeleteHisto
                     <td>
                       <button 
                         className="btn-open" 
-                        onClick={() => onOpenDataset(item.dataset_id)}
-                        style={{ fontWeight: "700", textAlign: "left", padding: 0 }}
+                        onClick={() => onDownload({ id: item.dataset_id, filename: item.filename }, "csv", item.status === "analyzed" ? "raw" : "processed")}
+                        title="Click to directly download CSV file"
+                        style={{ fontWeight: "700", textAlign: "left", padding: 0, display: "inline-flex", alignItems: "center", gap: "6px", color: "var(--color-primary)" }}
                       >
-                        {item.filename}
+                        <FileDown size={15} /> {item.filename}
                       </button>
                     </td>
                     {isAdmin && (
@@ -1235,6 +1236,30 @@ function DatasetLibrary({
     }
   };
 
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const files = e.dataTransfer?.files;
+    if (files && files.length > 0) {
+      handleUpload({ target: { files: [files[0]], value: "" } });
+    }
+  };
+
   return (
     <section className="library-layout animate-fade-in">
       <div className="hero-upload-container" style={{ paddingBottom: "24px" }}>
@@ -1282,10 +1307,21 @@ function DatasetLibrary({
         </div>
 
         {activeIngestTab === "upload" ? (
-          <label className="central-upload-box">
-            <Upload size={32} />
-            <h3>{uploadLoading ? "Uploading & Analyzing..." : "Upload CSV Dataset"}</h3>
-            <p>Click to browse files or drag and drop a CSV here</p>
+          <label 
+            className={`central-upload-box ${isDragging ? "dragging" : ""}`}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            style={{
+              border: isDragging ? "2px dashed var(--color-primary)" : "2px dashed var(--border-color)",
+              backgroundColor: isDragging ? "rgba(20, 184, 166, 0.08)" : "var(--bg-card)",
+              transition: "all 0.2s ease",
+              cursor: "pointer"
+            }}
+          >
+            <Upload size={32} style={{ color: isDragging ? "var(--color-primary)" : "var(--text-muted)" }} />
+            <h3>{uploadLoading ? "Uploading & Analyzing..." : isDragging ? "Drop CSV File Here to Ingest" : "Upload CSV Dataset"}</h3>
+            <p>Click to browse files or drag and drop a CSV file directly here</p>
             <input type="file" accept=".csv" onChange={handleUpload} disabled={uploadLoading} />
           </label>
         ) : (
@@ -1296,7 +1332,7 @@ function DatasetLibrary({
                 <Search size={18} style={{ position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
                 <input
                   type="text"
-                  placeholder="Search Kaggle & Hugging Face Hub (e.g. titanic, diabetes, iris)..."
+                  placeholder="Search datasets..."
                   value={hubQuery}
                   onChange={(e) => setHubQuery(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleHubSearch()}
@@ -3239,7 +3275,7 @@ function UserProfileView({ userProfile, onProfileUpdate, onPasswordChange, theme
                   </div>
                   <div>
                     <div style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: "700" }}>Phone Number</div>
-                    <div style={{ fontSize: "14px", color: "var(--text-primary)", fontWeight: "600" }}>+91 96523 80295</div>
+                    <div style={{ fontSize: "14px", color: "var(--text-primary)", fontWeight: "600" }}>+1 (555) 019-2834</div>
                   </div>
                 </div>
               </div>

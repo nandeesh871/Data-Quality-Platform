@@ -89,8 +89,94 @@ def change_password(
     return {"message": "Password changed successfully"}
 
 
+def send_welcome_email(to_email: str, name: str) -> tuple[bool, str]:
+    import smtplib, ssl
+    from email.message import EmailMessage
+    from datetime import datetime
+
+    host = settings.smtp_host or "smtp.gmail.com"
+    port = settings.smtp_port or 587
+    user = settings.smtp_user
+    password = settings.smtp_password
+    sender = settings.smtp_from or user
+
+    if user:
+        user = user.strip().strip('"').strip("'")
+    if password:
+        password = password.strip().strip('"').strip("'").replace(" ", "")
+
+    if not user or not password or "your-sending-gmail" in user or "your-google-app-password" in password:
+        print("SMTP credentials missing for welcome email. Skipping real email dispatch.")
+        return False, "SMTP not configured"
+
+    try:
+        msg = EmailMessage()
+        msg["Subject"] = "Welcome to Data Quality Hub - Account Created Successfully"
+        msg["From"] = sender
+        msg["To"] = to_email
+
+        html_body = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f8fafc; padding: 20px;">
+                <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 30px; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                    <div style="text-align: center; border-bottom: 2px solid #14b8a6; padding-bottom: 15px; margin-bottom: 25px;">
+                        <h2 style="color: #0d9488; margin: 0; font-size: 24px; font-weight: bold;">Data Quality Hub</h2>
+                        <p style="color: #64748b; margin: 5px 0 0 0; font-size: 14px;">Account Confirmation</p>
+                    </div>
+                    <p style="font-size: 16px; color: #1e293b;">Hello <strong>{name}</strong>,</p>
+                    <p style="font-size: 16px; color: #1e293b;">Welcome to <strong>Data Quality Hub</strong>! Your enterprise account has been created successfully.</p>
+                    <div style="background-color: #f0fdf4; padding: 18px; border-radius: 8px; margin: 20px 0; border: 1px solid #bbf7d0; color: #166534;">
+                        <p style="margin: 0; font-weight: 600;">Account Details:</p>
+                        <ul style="margin: 8px 0 0 0; padding-left: 20px;">
+                            <li>Email: <strong>{to_email}</strong></li>
+                            <li>Registered: <strong>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</strong></li>
+                        </ul>
+                    </div>
+                    <p style="color: #475569; font-size: 14px;">You can now log in, upload CSV datasets, run automated quality audits, clean missing values, and train machine learning models.</p>
+                    <div style="border-top: 1px solid #e2e8f0; padding-top: 20px; font-size: 12px; color: #94a3b8; text-align: center; margin-top: 25px;">
+                        <p style="margin: 0;">&copy; {datetime.now().year} Data Quality Platform Team</p>
+                    </div>
+                </div>
+            </body>
+        </html>
+        """
+        msg.set_content(f"Welcome to Data Quality Hub, {name}! Your account ({to_email}) has been created successfully.")
+        msg.add_alternative(html_body, subtype="html")
+
+        context = ssl.create_default_context()
+        if int(port) == 465:
+            with smtplib.SMTP_SSL(host, int(port), context=context, timeout=15) as server:
+                server.login(user, password)
+                server.send_message(msg)
+        else:
+            with smtplib.SMTP(host, int(port), timeout=15) as server:
+                server.ehlo()
+                server.starttls(context=context)
+                server.ehlo()
+                server.login(user, password)
+                server.send_message(msg)
+
+        print(f"Successfully sent welcome confirmation email to {to_email}.")
+        return True, "sent"
+    except Exception as err:
+        print(f"Welcome email dispatch error: {err}")
+        return False, str(err)
+
+
+@router.post("/test-smtp")
+def test_smtp_configuration(current_user: User = Depends(get_current_user)):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    success, msg = send_welcome_email(current_user.email, current_user.name)
+    if success:
+        return {"status": "success", "message": "SMTP configuration works correctly."}
+    else:
+        raise HTTPException(status_code=400, detail=f"SMTP check failed: {msg}")
+
+
 def send_otp_email(to_email: str, otp: str, purpose: str) -> tuple[bool, str]:
-    import smtplib
+    import smtplib, ssl
     from email.message import EmailMessage
     from datetime import datetime
 
@@ -116,13 +202,17 @@ def send_otp_email(to_email: str, otp: str, purpose: str) -> tuple[bool, str]:
     print("="*50 + "\n")
 
     # 2. Check if SMTP configuration is set
-    host = settings.smtp_host
-    port = settings.smtp_port
+    host = settings.smtp_host or "smtp.gmail.com"
+    port = settings.smtp_port or 587
     user = settings.smtp_user
     password = settings.smtp_password
     sender = settings.smtp_from or user
 
-    # If any required SMTP setting is missing or default placeholder, we run in simulation mode
+    if user:
+        user = user.strip().strip('"').strip("'")
+    if password:
+        password = password.strip().strip('"').strip("'").replace(" ", "")
+
     is_configured = (
         host and 
         port and 
@@ -169,7 +259,6 @@ def send_otp_email(to_email: str, otp: str, purpose: str) -> tuple[bool, str]:
         msg.add_alternative(html_body, subtype="html")
 
         # Setup SMTP server
-        import ssl
         context = ssl.create_default_context()
         if int(port) == 465:
             with smtplib.SMTP_SSL(host, int(port), context=context, timeout=15) as server:
