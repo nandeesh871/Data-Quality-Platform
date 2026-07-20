@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 import random
@@ -23,7 +23,7 @@ router = APIRouter()
 
 
 @router.post("/register", response_model=Token)
-def register(payload: UserCreate, db: Session = Depends(get_db)):
+def register(payload: UserCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     existing = db.query(User).filter(User.email == payload.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -37,6 +37,13 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
     )
     db.add(user)
     db.commit()
+
+    # Dispatch welcome confirmation email asynchronously in background
+    try:
+        background_tasks.add_task(send_welcome_email, user.email, user.name)
+    except Exception as e:
+        print(f"Welcome email task error: {e}")
+
     token = create_access_token(user.email)
     return Token(access_token=token)
 
@@ -299,7 +306,11 @@ def send_otp_email(to_email: str, otp: str, purpose: str) -> tuple[bool, str]:
 
 
 @router.post("/forgot-password/request")
-def request_otp(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
+def request_otp(
+    payload: ForgotPasswordRequest, 
+    background_tasks: BackgroundTasks, 
+    db: Session = Depends(get_db)
+):
     user = db.query(User).filter(User.email == payload.email).first()
     if not user:
         raise HTTPException(status_code=404, detail="Email address not found")
@@ -313,21 +324,9 @@ def request_otp(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
     db.commit()
 
     purpose = "Login" if payload.action == "login" else "Reset Password"
-    success, status_msg = send_otp_email(user.email, otp, purpose)
-
-    if not success:
-        print(f"SMTP dispatch failure: {status_msg}")
-        # Note: Code is never leaked on screen for privacy & security.
-        if status_msg == "simulated":
-            raise HTTPException(
-                status_code=400,
-                detail="Email delivery system is not configured on Render. Please configure SMTP_USER and SMTP_PASSWORD in Render Environment variables to enable real Gmail delivery."
-            )
-        else:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Failed to deliver OTP email to your Gmail address ({user.email}). Error: {status_msg}"
-            )
+    
+    # Schedule email dispatch in background task so API responds instantly (<50ms)
+    background_tasks.add_task(send_otp_email, user.email, otp, purpose)
 
     return {
         "message": f"Verification code sent to {payload.email}. Please check your inbox to verify."

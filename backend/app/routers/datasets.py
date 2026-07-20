@@ -617,18 +617,24 @@ def export_dataset(
             status_code=404,
             detail="Original raw dataset not found on disk. Due to Render's free tier ephemeral disk, files are deleted on container restart. Please re-import or re-upload the dataset to restore it."
         )
-    
+        
     if version == "raw":
         path = Path(get_original_path(dataset.stored_path))
-    elif version == "processed":
-        if dataset.status == "analyzed":
-            raise HTTPException(
-                status_code=400,
-                detail="Dataset has not been processed yet. Execute data cleaning or preprocessing first."
-            )
-        path = Path(dataset.stored_path)
     else:
+        if version == "processed" and dataset.status == "analyzed":
+            path = Path(get_original_path(dataset.stored_path))
+        else:
+            path = Path(dataset.stored_path)
+
+    if not path.exists():
         path = Path(dataset.stored_path)
+
+    export_filename = f"export_{dataset.filename}"
+    headers = {
+        "Content-Disposition": f"attachment; filename=\"{export_filename}\"",
+        "Access-Control-Expose-Headers": "Content-Disposition",
+        "Access-Control-Allow-Origin": "*"
+    }
 
     if format == "csv":
         add_lineage_log(
@@ -638,11 +644,6 @@ def export_dataset(
             action="export",
             details=f"Dataset exported as CSV by {user.name}."
         )
-        export_filename = f"export_{dataset.filename}"
-        headers = {
-            "Content-Disposition": f"attachment; filename=\"{export_filename}\"",
-            "Access-Control-Expose-Headers": "Content-Disposition"
-        }
         return FileResponse(path, filename=export_filename, media_type="text/csv", headers=headers)
 
     if format == "json":
@@ -654,7 +655,7 @@ def export_dataset(
             details=f"Dataset exported as JSON by {user.name}."
         )
         df = pd.read_csv(path)
-        return JSONResponse(content=df.fillna("").to_dict(orient="records"))
+        return JSONResponse(content=df.fillna("").to_dict(orient="records"), headers=headers)
 
     if format == "excel":
         add_lineage_log(
@@ -671,12 +672,10 @@ def export_dataset(
             df.to_excel(writer, index=False, sheet_name="Dataset")
         output.seek(0)
         
-        filename = Path(dataset.filename).with_suffix(".xlsx").name
-        headers = {
-            "Content-Disposition": f"attachment; filename=export_{filename}"
-        }
-        return StreamingResponse(
-            output,
+        excel_filename = f"export_{dataset.filename.replace('.csv', '')}.xlsx"
+        headers["Content-Disposition"] = f"attachment; filename=\"{excel_filename}\""
+        return Response(
+            content=output.getvalue(),
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers=headers
         )
