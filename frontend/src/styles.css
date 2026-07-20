@@ -2203,6 +2203,33 @@ tr:hover td {
     border-radius: 4px !important;
   }
 
+  table.print-comparison-table {
+    width: 100% !important;
+    table-layout: fixed !important;
+    border-collapse: collapse !important;
+    font-size: 11px !important;
+  }
+
+  table.print-comparison-table th, 
+  table.print-comparison-table td {
+    padding: 6px 8px !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    box-sizing: border-box !important;
+  }
+
+  table.print-comparison-table th:nth-child(1),
+  table.print-comparison-table td:nth-child(1) { width: 30% !important; }
+
+  table.print-comparison-table th:nth-child(2),
+  table.print-comparison-table td:nth-child(2) { width: 22% !important; }
+
+  table.print-comparison-table th:nth-child(3),
+  table.print-comparison-table td:nth-child(3) { width: 22% !important; }
+
+  table.print-comparison-table th:nth-child(4),
+  table.print-comparison-table td:nth-child(4) { width: 26% !important; }
+
   table {
     width: 100% !important;
     border-collapse: collapse !important;

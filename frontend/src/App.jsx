@@ -149,7 +149,12 @@ function AuthScreen({ onAuth }) {
     setLoading(true);
     try {
       const res = await requestOTP(form.email, action);
-      setSuccess(res.message || `OTP sent to ${form.email}`);
+      let successMsg = res.message || `OTP sent to ${form.email}`;
+      if (res.demo_otp) {
+        successMsg = `Verification code generated! Demo OTP Code: ${res.demo_otp} (Pre-filled below for instant verification)`;
+        setOtp(res.demo_otp);
+      }
+      setSuccess(successMsg);
       setMode(action === "login" ? "verify_login" : "verify_reset");
     } catch (err) {
       setError(err.message);
@@ -1996,32 +2001,32 @@ function Dashboard({
           <h2>Quality Dimensions Comparison</h2>
           <div className="print-visualization-grid">
             <div className="print-chart-box">
-              <h3 style={{ fontSize: "14px", fontWeight: "600", color: "#0b0f19", marginBottom: "12px", textAlign: "center" }}>Before Processing (%)</h3>
-              <BarChart width={330} height={200} data={beforeQualityDimensions} margin={{ top: 10, right: 10, bottom: 20, left: 10 }}>
+              <h3 style={{ fontSize: "13px", fontWeight: "600", color: "#0b0f19", marginBottom: "8px", textAlign: "center" }}>Before Processing (%)</h3>
+              <BarChart width={260} height={160} data={beforeQualityDimensions} margin={{ top: 10, right: 10, bottom: 20, left: 10 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" tick={{ fill: "#475569", fontSize: 10 }} />
-                <YAxis domain={[0, 100]} tick={{ fill: "#475569", fontSize: 10 }} />
+                <XAxis dataKey="name" tick={{ fill: "#475569", fontSize: 9 }} />
+                <YAxis domain={[0, 100]} tick={{ fill: "#475569", fontSize: 9 }} />
                 <Tooltip />
                 <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                   {beforeQualityDimensions.map((entry, index) => (
                     <Cell key={entry.name} fill={entry.fill} />
                   ))}
-                  <LabelList dataKey="value" position="top" style={{ fill: "#0f172a", fontSize: 10, fontWeight: "bold" }} formatter={(v) => `${v}%`} />
+                  <LabelList dataKey="value" position="top" style={{ fill: "#0f172a", fontSize: 9, fontWeight: "bold" }} formatter={(v) => `${v}%`} />
                 </Bar>
               </BarChart>
             </div>
             <div className="print-chart-box">
-              <h3 style={{ fontSize: "14px", fontWeight: "600", color: "#0b0f19", marginBottom: "12px", textAlign: "center" }}>After Processing (%)</h3>
-              <BarChart width={330} height={200} data={afterQualityDimensions} margin={{ top: 10, right: 10, bottom: 20, left: 10 }}>
+              <h3 style={{ fontSize: "13px", fontWeight: "600", color: "#0b0f19", marginBottom: "8px", textAlign: "center" }}>After Processing (%)</h3>
+              <BarChart width={260} height={160} data={afterQualityDimensions} margin={{ top: 10, right: 10, bottom: 20, left: 10 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" tick={{ fill: "#475569", fontSize: 10 }} />
-                <YAxis domain={[0, 100]} tick={{ fill: "#475569", fontSize: 10 }} />
+                <XAxis dataKey="name" tick={{ fill: "#475569", fontSize: 9 }} />
+                <YAxis domain={[0, 100]} tick={{ fill: "#475569", fontSize: 9 }} />
                 <Tooltip />
                 <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                   {afterQualityDimensions.map((entry, index) => (
                     <Cell key={entry.name} fill={entry.fill} />
                   ))}
-                  <LabelList dataKey="value" position="top" style={{ fill: "#0f172a", fontSize: 10, fontWeight: "bold" }} formatter={(v) => `${v}%`} />
+                  <LabelList dataKey="value" position="top" style={{ fill: "#0f172a", fontSize: 9, fontWeight: "bold" }} formatter={(v) => `${v}%`} />
                 </Bar>
               </BarChart>
             </div>
@@ -2033,32 +2038,32 @@ function Dashboard({
           <h2>Column Data Type Composition Comparison</h2>
           <div className="print-visualization-grid">
             <div className="print-chart-box">
-              <h3 style={{ fontSize: "14px", fontWeight: "600", color: "#0b0f19", marginBottom: "12px", textAlign: "center" }}>Before Processing (Column Count)</h3>
-              <BarChart width={330} height={200} data={beforeDataTypeCounts} margin={{ top: 10, right: 10, bottom: 20, left: 10 }}>
+              <h3 style={{ fontSize: "13px", fontWeight: "600", color: "#0b0f19", marginBottom: "8px", textAlign: "center" }}>Before Processing (Column Count)</h3>
+              <BarChart width={260} height={160} data={beforeDataTypeCounts} margin={{ top: 10, right: 10, bottom: 20, left: 10 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" tick={{ fill: "#475569", fontSize: 10 }} />
-                <YAxis allowDecimals={false} tick={{ fill: "#475569", fontSize: 10 }} />
+                <XAxis dataKey="name" tick={{ fill: "#475569", fontSize: 9 }} />
+                <YAxis allowDecimals={false} tick={{ fill: "#475569", fontSize: 9 }} />
                 <Tooltip />
                 <Bar dataKey="count" fill="#2563eb" radius={[4, 4, 0, 0]}>
                   {beforeDataTypeCounts.map((entry, index) => (
                     <Cell key={entry.name} fill={index === 0 ? "#2563eb" : index === 1 ? "#14b8a6" : index === 2 ? "#f59e0b" : "#6366f1"} />
                   ))}
-                  <LabelList dataKey="count" position="top" style={{ fill: "#0f172a", fontSize: 10, fontWeight: "bold" }} />
+                  <LabelList dataKey="count" position="top" style={{ fill: "#0f172a", fontSize: 9, fontWeight: "bold" }} />
                 </Bar>
               </BarChart>
             </div>
             <div className="print-chart-box">
-              <h3 style={{ fontSize: "14px", fontWeight: "600", color: "#0b0f19", marginBottom: "12px", textAlign: "center" }}>After Processing (Column Count)</h3>
-              <BarChart width={330} height={200} data={afterDataTypeCounts} margin={{ top: 10, right: 10, bottom: 20, left: 10 }}>
+              <h3 style={{ fontSize: "13px", fontWeight: "600", color: "#0b0f19", marginBottom: "8px", textAlign: "center" }}>After Processing (Column Count)</h3>
+              <BarChart width={260} height={160} data={afterDataTypeCounts} margin={{ top: 10, right: 10, bottom: 20, left: 10 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" tick={{ fill: "#475569", fontSize: 10 }} />
-                <YAxis allowDecimals={false} tick={{ fill: "#475569", fontSize: 10 }} />
+                <XAxis dataKey="name" tick={{ fill: "#475569", fontSize: 9 }} />
+                <YAxis allowDecimals={false} tick={{ fill: "#475569", fontSize: 9 }} />
                 <Tooltip />
                 <Bar dataKey="count" fill="#2563eb" radius={[4, 4, 0, 0]}>
                   {afterDataTypeCounts.map((entry, index) => (
                     <Cell key={entry.name} fill={index === 0 ? "#2563eb" : index === 1 ? "#14b8a6" : index === 2 ? "#f59e0b" : "#6366f1"} />
                   ))}
-                  <LabelList dataKey="count" position="top" style={{ fill: "#0f172a", fontSize: 10, fontWeight: "bold" }} />
+                  <LabelList dataKey="count" position="top" style={{ fill: "#0f172a", fontSize: 9, fontWeight: "bold" }} />
                 </Bar>
               </BarChart>
             </div>

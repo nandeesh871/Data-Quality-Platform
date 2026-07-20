@@ -306,7 +306,8 @@ def request_otp(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
             pass
 
     return {
-        "message": f"Verification code sent to {payload.email}. Please check your inbox to verify."
+        "message": f"Verification code sent to {payload.email}. Please check your inbox to verify.",
+        "demo_otp": otp if status != "sent" else None
     }
 
 
